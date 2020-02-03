@@ -10,15 +10,7 @@ struct ReactionSystem
     update_a::Vector{Vector{Integer}}
 end
 
-function SI(α::Real)
-    rs = ReactionSystem(2, 1, [α],
-    [X -> X[1]*X[2]],
-    [[(1,-1),(2,1)]],
-    [[1]]
-    )
-end
-
-function gillespie_algorithm(rs::ReactionSystem, Xi, tmax = 100.0, nmax = 1000)
+function gillespie_algorithm(rs::ReactionSystem, Xi, tmax = 100.0, nmax = 500)
     t = 0.0
     n = 0
     ts = Vector{typeof(t)}(undef, nmax)
@@ -51,13 +43,41 @@ function gillespie_algorithm(rs::ReactionSystem, Xi, tmax = 100.0, nmax = 1000)
     return ts[1:n], Xs[1:n,:]
 end
 
-si = SI(0.5)
-si.h[1]([10,10])
+function SI(α::Real)
+    rs = ReactionSystem(2, 1, [α],
+    [X -> X[1]*X[2]],
+    [[(1,-1),(2,1)]],
+    [[1]]
+    )
+end
 
-ts, Xs = gillespie_algorithm(si, [100, 1])
+function LotkaVolterra(c)
+    rs = ReactionSystem(3,3,c,
+    [X -> X[1]*X[3],
+     X -> X[1]*X[2],
+     X -> X[2]],
+    [[(1,1)],[(1,-1),(2,1)],[(2,-1)]],
+    [[1],[1,2],[2]]
+    )
+end
+
+function Brusselator(c)
+    rs = ReactionSystem(4,4,c
+    [X -> X[3],
+     X -> X[4]*X[1],
+     X -> X[2]*X[1](X[1]-1)/2,
+     X -> X[2]],
+     [[(1,1)],[(1,-1),(2,1)],[(1,-2),(2,2)],[(1,-1)]],
+     [[2,3,4],[2,3,4],[2,3,4],[2,3,4]]
+    )
+end
+
+si = SI(0.5)
+
+ts, Xs = gillespie_algorithm(si, [100,1])
 
 using Plots
 
-plot(ts, Xs[:,1])
+plot(ts, Xs[:,1], line=:steppre)
 scatter!(ts, Xs[:,1], markersize=1)
-plot!(ts, [Xs[i][2] for i in 1:length(Xs)])
+plot!(ts, 100*exp.(-0.5*ts))
