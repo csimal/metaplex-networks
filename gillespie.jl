@@ -12,8 +12,9 @@ end
 
 function gillespie_algorithm(rs::ReactionSystem, Xi; tmax = 100.0, nmax = 500)
     t = 0.0
-    n = 0
+    n = 1
     ts = Vector{typeof(t)}(undef, nmax)
+    ts[1] = t
     X = copy(Xi)
     Xs = Array{typeof(Xi[1]),2}(undef, nmax, rs.N)
     Xs[1,:] = X
