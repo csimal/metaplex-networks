@@ -6,6 +6,15 @@ using Statistics
 
 include("randutils.jl")
 
+"""
+    contact_process_gillespie(g, Xi, β; kwargs)
+
+Simulate SI spreading on network `g` using the Gillespie algorithm.
+
+`g` is an `AbstractSimpleGraph{<:Integer}`, `β` is the infection rate and `Xi` is a bit vector whose true entries denote initially infected nodes. Additional arguments are
+`nmax=1000`: the maximum number of iterations of the algorithm
+`tmax=100.0`: the maximum time allowed
+"""
 function contact_process_gillespie(g::SimpleDiGraph{<:Integer}, Xi::BitVector, β::Real; nmax=1000, tmax=100)
     N = nv(g)
     E = collect(edges(g))
@@ -56,14 +65,18 @@ function contact_process_ode(g::AbstractSimpleGraph{<:Integer}, Xi, β::Real; tm
     A = adjacency_matrix(g)
     u0 = float(Xi)
     f! = function(du,u,p,t)
-        A, β = p
-        du = β*(1.0 .- u).*(A*u)
+        du .= β*(1.0 .- u).*(A*u)
     end
-    prob = ODEProblem(f!, u0, (0,tmax), [A,β])
+    prob = ODEProblem(f!, u0, (0.0,tmax))
     return solve(prob, Tsit5())
 end
 
-function contact_process_montecarlo(g::AbstractSimpleGraph{<:Integer}, Xi, β::Real; nmax=1000, tmax = 100.0, nsims=1000, nbins = 100)
+"""
+    contact_process_montecarlo(g, Xi, β; kwargs)
+
+Compute the average and variance of trajectories given by the gillespie algorithm over `nsims` simulations.
+"""
+function contact_process_montecarlo(g::AbstractSimpleGraph{<:Integer}, Xi::BitVector, β::Real; nmax=1000, tmax = 100.0, nsims=1000, nbins = 100)
     ts = LinRange(0.0, tmax, nbins)
     X_sum = zeros(nbins)
     M_sum = zeros(nbins) # running SSE
@@ -71,7 +84,7 @@ function contact_process_montecarlo(g::AbstractSimpleGraph{<:Integer}, Xi, β::R
         t, X = contact_process_gillespie(g, Xi, β, nmax=nmax, tmax=tmax)
         l = 1
         for k in 1:nbins
-            while ts[k] > t[l] && l < length(t)
+            while l < length(t) && t[l+1] < ts[k]
                 l += 1
             end
             Xn = sum(X[l,:])
@@ -84,21 +97,19 @@ function contact_process_montecarlo(g::AbstractSimpleGraph{<:Integer}, Xi, β::R
 end
 
 
-N = 100
+N = 1000
 g = random_configuration_model(N,fill(3,N))
 β = 0.3
 X = falses(N)
-X[rand_combination(N,1)] .= true
-ts, Xs, Es = contact_process_gillespie(g, X, β)
+X[rand_combination(N,50)] .= true
 
-A = adjacency_matrix(g)
-β*(1 .- X).*(A*X)
+ts, Xs, Es = contact_process_gillespie(g, X, β)
 
 using Plots
 plot(ts, sum(Xs, dims=2)/N, xlabel="time", ylabel="Fraction of infected individuals", label="")
 
 using GraphPlot
-using GraphRecipes
+
 gplot(g)
 loc_x, loc_y = spring_layout(g)
 h = SimpleDiGraph(g)
@@ -108,16 +119,22 @@ gplot(h,
       edgestrokec=edgecols,
       arrowlengthfrac=0.05)
 
-sol = contact_process_ode(g, X, β, tmax=20.0)
-plot(sol, label="")
+sol = contact_process_ode(g, X, β, tmax=2.0)
 
-tmean, Xmean, Mmean = contact_process_montecarlo(g, X, β, tmax = 24.0, nbins=240)
+plot(sol, label="")
+us = hcat(sol.u...)'
+plot!(sol.t, sum(us,dims=2)/N)
+
+sol.u[1] == X
+
+tmean, Xmean, Mmean = contact_process_montecarlo(g, X, β, tmax = 2.0, nbins=400, nsims = 1000)
 Smean = sqrt.(Mmean)
 plot(tmean, Xmean/N,
     label="Average",
-    legend=:topleft,
+    legend=:bottomright,
     xlabel = "time",
     ylabel = "Fraction of infected individuals"
     )
 plot!(tmean, (Xmean+Smean)/N, linestyle=:dash, color=:black, label="Standard Deviation")
 plot!(tmean, (Xmean-Smean)/N, linestyle=:dash, color=:black, label="")
+plot!(sol.t, sum(us,dims=2)/N, label="Individual Based Approximation")

@@ -98,15 +98,15 @@ function metapopulation_gillespie(mp::Metapopulation{SimpleGraph{T}}, s_0, i_0; 
     return ts[1:n], ss[1:n,:], is[1:n,:]
 end
 
-function metapopulation_ode(mp::Metapopulation{<:AbstractSimpleGraph}, s, i; tmax = 100.0)
+function metapopulation_ode(mp::Metapopulation{<:AbstractSimpleGraph{<:Integer}}, s, i; tmax = 100.0)
     L = normalized_laplacian(mp.g)
     # define a special operator for solving the linear part of the equation exactly
     N = nv(mp.g)
     f! = function(dx,x,p,t)
         n = p
-        tmp = mp.β*x[1:n].*x[n+1:2*n]
-        dx[1:n] = -tmp - μ*L*x[1:n]
-        dx[n+1:2*n] = tmp - μ*L*x[n+1:2*n]
+        tmp = mp.β*x[1:n].*x[n+1:2*n]./(mp.V).^2
+        dx[1:n] = -tmp - μ*L*x[1:n]./mp.V
+        dx[n+1:2*n] = tmp - μ*L*x[n+1:2*n]./mp.V
     end
     prob = ODEProblem(f!, vcat(float(s),float(i)), (0.0,tmax), N)
     solve(prob, Tsit5()) # order 5 solver
@@ -138,29 +138,31 @@ function metapopulation_gillespie_montecarlo(mp::Metapopulation{SimpleGraph{<:In
     return ts, mean_s, mean_i#, sqrt.(var_s), sqrt.(var_i)
 end
 
-N = 100
+N = 10
+P = 1000
 volume = 1
+frac_infected = 0.01
+ninfected = Int(frac_infected*P)
 g = complete_graph(N)
 g = random_configuration_model(N,fill(3,N))
 V = fill(volume, N)
-Vtot = N*volume
 β = 0.1
 μ = 0.3
 mp = Metapopulation(g,V,β,μ)
-s0 = fill(900, N)
+s0 = fill(P, N)
 i0 = zeros(Int, N)
-s0[1] = 890
-i0[1] = 10
-
-ts, s, i = metapopulation_gillespie(mp,s0,i0, nmax = 50000)
+s0[1] = P-ninfected
+i0[1] = ninfected
+Ptot = sum(s0) + sum(i0)
+ts, s, i = metapopulation_gillespie(mp,s0,i0, nmax = 1000000, tmax=0.8)
 
 using Plots
-plot(ts, sum(i, dims=2)/Vtot, label="", line=:steppre)
+plot(ts, sum(i, dims=2)/Ptot, label="", line=:steppre)
 
-plot(ts,i/Vtot, line=:steppre, label="")
-plot(ts,s/Vtot, line=:steppre)
+plot(ts,i/P, line=:steppre, label="")
+plot(ts,s/Ptot, line=:steppre)
 
-sol = metapopulation_ode(mp, s0, i0, 0.5)
+sol = metapopulation_ode(mp, s0, i0, tmax=0.8)
 plot(sol, vars = collect(N+1:2*N), label="")
 plot!(ts,i, line=:steppre, label="")
 
