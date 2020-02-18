@@ -35,7 +35,7 @@ function normalized_laplacian(g::SimpleDiGraph)
     return L
 end
 
-function metapopulation_gillespie(mp::Metapopulation{SimpleGraph{T}}, s_0, i_0; tmax=100.0, nmax=1000) where T <: Integer
+function metapopulation_gillespie(mp::Metapopulation{SimpleGraph{T}}, s_0, i_0; tmax=100.0, nmax=1000, normalize_migration=true) where T <: Integer
     t = 0.0
     n = 1
     β = mp.β
@@ -89,10 +89,10 @@ function metapopulation_gillespie(mp::Metapopulation{SimpleGraph{T}}, s_0, i_0; 
             a[2*N+v] = μ*i[v]/V[v]
         end
         a0 = sum(a)
+        t += τ
         ts[n+1] = t
         ss[n+1,:] = s
         is[n+1,:] = i
-        t += τ
         n += 1
     end
     return ts[1:n], ss[1:n,:], is[1:n,:]
@@ -113,8 +113,8 @@ function metapopulation_ode(mp::Metapopulation{<:AbstractSimpleGraph{<:Integer}}
     # tried to use an exact solver for the linear part, but couldn't get it to work :(
 end
 
-function metapopulation_gillespie_montecarlo(mp::Metapopulation{SimpleGraph{<:Integer}}, s_0, i_0; tmax = 100.0, nmax = 1000, nsims = 100, nbins = 100)
-    n = length(vertices(mp.g))
+function metapopulation_montecarlo(mp::Metapopulation{SimpleGraph{T}}, s_0, i_0; tmax = 100.0, nmax = 1000, nsims = 100, nbins = 100) where T <: Integer
+    n = nv(mp.g)
     ts = LinRange(0.0, tmax, nbins)
     s_sum = zeros(nbins, n)
     #s_sumofsquares = zeros(nbins, n)
@@ -124,7 +124,8 @@ function metapopulation_gillespie_montecarlo(mp::Metapopulation{SimpleGraph{<:In
         t, s, i = metapopulation_gillespie(mp, s_0, i_0, tmax=tmax, nmax=nmax)
         l = 1
         for k in 1:nbins
-            while ts[k] > t[l] && l < length(t)
+            # Y U NO WORK?
+            while l < length(t) && t[l+1] < ts[k]
                 l += 1
             end
             s_sum[k,:] += s[l,:]
@@ -136,74 +137,4 @@ function metapopulation_gillespie_montecarlo(mp::Metapopulation{SimpleGraph{<:In
     #var_s = s_sumofsquares/nsims - mean_s.^2
     #var_i = i_sumofsquares/nsims - mean_i.^2
     return ts, mean_s, mean_i#, sqrt.(var_s), sqrt.(var_i)
-end
-
-N = 10
-P = 1000
-volume = 1
-frac_infected = 0.01
-ninfected = Int(frac_infected*P)
-g = complete_graph(N)
-g = random_configuration_model(N,fill(3,N))
-V = fill(volume, N)
-β = 0.1
-μ = 0.3
-mp = Metapopulation(g,V,β,μ)
-s0 = fill(P, N)
-i0 = zeros(Int, N)
-s0[1] = P-ninfected
-i0[1] = ninfected
-Ptot = sum(s0) + sum(i0)
-ts, s, i = metapopulation_gillespie(mp,s0,i0, nmax = 1000000, tmax=0.8)
-
-using Plots
-plot(ts, sum(i, dims=2)/Ptot, label="", line=:steppre)
-
-plot(ts,i/P, line=:steppre, label="")
-plot(ts,s/Ptot, line=:steppre)
-
-sol = metapopulation_ode(mp, s0, i0, tmax=0.8)
-plot(sol, vars = collect(N+1:2*N), label="")
-plot!(ts,i, line=:steppre, label="")
-
-plot(ts,sum(i+s, dims=2), label="")
-all(x->x==1001, sum(i+s, dims=2))
-
-tsmc, mean_s, mean_i = metapopulation_gillespie_montecarlo(mp,s0,i0,tmax=2.0, nmax=5000, nbins=200)
-
-plot(tsmc, mean_i, line=:steppre)
-plot!(sol, vars = collect(N+1:2*N))
-
-function transient_time_montecarlo(mp::Metapopulation, s0, i0; tmax=100.0, nmax=1000, nsims = 100)
-    totalpop = sum(s0) + sum(i0)
-    tts = zeros(nsims)
-    for l in 1:nsims
-        t, s, i = metapopulation_gillespie(mp, s0, i0, tmax=tmax, nmax=nmax)
-        k = 1
-        tot = sum(i[k,:])
-        while tot < 0.9*totalpop && k < length(t)
-            k += 1
-            tot += sum(i[k,:])
-        end
-        tts[l] = t[k]
-    end
-    return mean(tts)
-end
-
-μs = LinRange(0.0,1.0, 200)
-ttime = zeros(200)
-for k in 1:200
-    mp = Metapopulation(g, β, μs[k])
-    ttime[k] = transient_time_montecarlo(mp,s0,i0,tmax = 1.0, nmax=5000, nsims=200)
-end
-scatter(μs, ttime, label="", xlabel="\\mu", ylabel="\\tau")
-savefig("transientvsmu.png")
-
-βs = LinRange(0.0,1.0,200)
-
-ttimes = zeros(200,200)
-
-for k in 1:200, l in 1:200
-    mp = Metapopulation(g, βs[k], μs[l])
-    ttimes[k,l] = transient_time_montecarlo(mp,s0,i0,tmax=1.0,nmax=5000,nsims=200)
 end

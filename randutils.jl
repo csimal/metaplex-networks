@@ -25,7 +25,7 @@ end
     rand_combination(n,k)
 
 Return a random combination of `k` elements in `1:n`.
-"""
+""" 
 function rand_combination(n::Integer, k::Integer)
     if k < n && k > 0
         c = Vector{Int64}(undef, k)
@@ -39,3 +39,4 @@ function rand_combination(n::Integer, k::Integer)
         return []
     end
 end
+
