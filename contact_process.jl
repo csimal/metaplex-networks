@@ -15,16 +15,16 @@ Simulate SI spreading on network `g` using the Gillespie algorithm.
 `g` is an `AbstractSimpleGraph{<:Integer}`, `β` is the infection rate and `Xi` is a bit vector whose true entries denote initially infected nodes. Additional arguments are
   * `nmax=1000`: the maximum number of iterations of the algorithm
   * `tmax=100.0`: the maximum time allowed
-  * `method=:tree`: The algorithm for sampling which node gets infected at a given time step. Choose from `:array`, `:sparse` or `:tree`. Default is `:tree` which scales better with the number of nodes (log(N) vs. N^2).
+  * `sampling_method=:tree`: The algorithm for sampling which node gets infected at a given time step. Choose from `:array`, `:sparse` or `:tree`. Default is `:tree` which scales better with the number of nodes (log(N) vs. N^2).
   * `record=false`: Whether or not to record which node gets infected and by whom. If `true`, return a vector of pairs `(k,j)` describing which node `k` got infected and `j` its neighbor that infected it.
 """
-function contact_process_gillespie(g::AbstractSimpleGraph{<:Integer}, Xi::BitVector, β::Real; nmax=length(Xi), tmax=100, method=:tree, record=false)
+function contact_process_gillespie(g::AbstractSimpleGraph{<:Integer}, Xi::BitVector, β::Real; nmax=length(Xi), tmax=100, sampling_method=:tree, record=false)
     N = nv(g)
     X = copy(Xi)
     #nreactions::Int64 = 0
-    if method == :tree
+    if sampling_method == :tree
         a = zeros(N)
-    elseif method == :sparse
+    elseif sampling_method == :sparse
         a = spzeros(N)
     else
         a = zeros(N)
@@ -36,7 +36,7 @@ function contact_process_gillespie(g::AbstractSimpleGraph{<:Integer}, Xi::BitVec
             #nreactions += l
         end
     end
-    if method == :tree # use a specialized binary tree
+    if sampling_method == :tree # use a specialized binary tree
         a = CategoricalTree(a)
     end
     a0 = sum(a)
@@ -55,7 +55,7 @@ function contact_process_gillespie(g::AbstractSimpleGraph{<:Integer}, Xi::BitVec
             a[i] += β
             #nreactions += 1
         end
-        if method == :sparse
+        if sampling_method == :sparse
             SparseArrays.dropstored!(a,k) # O(1) cost?
         end
         #a0 = β*nreactions
