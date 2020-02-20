@@ -35,7 +35,19 @@ function normalized_laplacian(g::SimpleDiGraph)
     return L
 end
 
-function metapopulation_gillespie(mp::Metapopulation{SimpleGraph{T}}, s_0, i_0; tmax=100.0, nmax=1000, normalize_migration=true) where T <: Integer
+"""
+    metapopulation_gillespie(mp, s_0, i_0; kwargs)
+
+Perform a single simulation of SI spreading on the metapopulation described by `mp`.
+
+`s0` and `i0` contain respectively the initial numbers of susceptible and infected individuals per node in the metapopulation.
+
+Keyword arguments
+  * `nmax=1000`: maximum number of iterations of the algorithm
+  * `tmax=100.0`: maximum time of the simulation
+  * `normalize_migration=true`: whether or not migration rate should be the same for all nodes (currently, does nothing if set to `false`)
+"""
+function metapopulation_gillespie(mp::Metapopulation{SimpleGraph{T}}, s0, i0; nmax=1000, tmax=100.0, normalize_migration=true) where T <: Integer
     t = 0.0
     n = 1
     β = mp.β
@@ -44,12 +56,12 @@ function metapopulation_gillespie(mp::Metapopulation{SimpleGraph{T}}, s_0, i_0; 
     N = length(vertices(mp.g))
     ts = Vector{typeof(t)}(undef, nmax)
     ts[1] = t
-    ss = Array{typeof(s_0[1]),2}(undef, nmax, length(s_0))
-    is = Array{typeof(i_0[1]),2}(undef, nmax, length(i_0))
-    ss[1,:] = s_0
-    is[1,:] = i_0
-    s = copy(s_0)
-    i = copy(i_0)
+    ss = Array{typeof(s_0[1]),2}(undef, nmax, length(s0))
+    is = Array{typeof(i_0[1]),2}(undef, nmax, length(i0))
+    ss[1,:] = s0
+    is[1,:] = i0
+    s = copy(s0)
+    i = copy(i0)
     d = degree(mp.g) .> 0 # which nodes have neighbors
     a = Vector{Float64}(undef, 3*N)
     a[1:N] = β*s.*i./(V.^2)
@@ -98,7 +110,17 @@ function metapopulation_gillespie(mp::Metapopulation{SimpleGraph{T}}, s_0, i_0; 
     return ts[1:n], ss[1:n,:], is[1:n,:]
 end
 
-function metapopulation_ode(mp::Metapopulation{<:AbstractSimpleGraph{<:Integer}}, s, i; tmax = 100.0)
+"""
+    metapopulation_ode(mp, s0, i0; kwargs)
+
+Integrate the Mean Field equations for SI spreading on the metapopulation described by `mp`.
+
+`s0` and `i0` contain respectively the initial numbers of susceptible and infected individuals per node.
+
+Keyword arguments:
+  * `tmax=100.0`: the maximum time of the simulation
+"""
+function metapopulation_ode(mp::Metapopulation{<:AbstractSimpleGraph{<:Integer}}, s0, i0; tmax = 100.0)
     L = normalized_laplacian(mp.g)
     # define a special operator for solving the linear part of the equation exactly
     N = nv(mp.g)
@@ -108,12 +130,25 @@ function metapopulation_ode(mp::Metapopulation{<:AbstractSimpleGraph{<:Integer}}
         dx[1:n] = -tmp - μ*L*x[1:n]./mp.V
         dx[n+1:2*n] = tmp - μ*L*x[n+1:2*n]./mp.V
     end
-    prob = ODEProblem(f!, vcat(float(s),float(i)), (0.0,tmax), N)
+    prob = ODEProblem(f!, vcat(float(s0),float(i0)), (0.0,tmax), N)
     solve(prob, Tsit5()) # order 5 solver
     # tried to use an exact solver for the linear part, but couldn't get it to work :(
 end
 
-function metapopulation_montecarlo(mp::Metapopulation{SimpleGraph{T}}, s_0, i_0; tmax = 100.0, nmax = 1000, nsims = 100, nbins = 100) where T <: Integer
+"""
+    metapopulation_montecarlo(mp, s0, i0; kwargs)
+
+Perform multiple simulations of SI spreading on the metapopulation described by `mp`, returning the average curve.
+
+`s0` and `i0` contain respectively the initial numbers of susceptible and infected individuals in each node.
+
+Keyword arguments:
+  * `nmax=1000`: maximum number of iterations of each simulation
+  * `tmax=100.0`: maximum time of the simulations
+  * `nsims=100`: number of simulations to perform
+  * `nbins`: the number of time steps at which the average is computed
+"""
+function metapopulation_montecarlo(mp::Metapopulation{SimpleGraph{T}}, s0, i0; nmax = 1000, tmax = 100.0, nsims = 100, nbins = 100) where T <: Integer
     n = nv(mp.g)
     ts = LinRange(0.0, tmax, nbins)
     s_sum = zeros(nbins, n)
@@ -121,10 +156,9 @@ function metapopulation_montecarlo(mp::Metapopulation{SimpleGraph{T}}, s_0, i_0;
     i_sum = zeros(nbins, n)
     #i_sumofsquares = zeros(nbins, n)
     for j in 1:nsims
-        t, s, i = metapopulation_gillespie(mp, s_0, i_0, tmax=tmax, nmax=nmax)
+        t, s, i = metapopulation_gillespie(mp, s0, i0, tmax=tmax, nmax=nmax)
         l = 1
         for k in 1:nbins
-            # Y U NO WORK?
             while l < length(t) && t[l+1] < ts[k]
                 l += 1
             end

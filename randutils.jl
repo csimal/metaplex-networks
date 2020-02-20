@@ -1,12 +1,12 @@
 #using Random
-
+using SparseArrays
 
 """
     rand_categorical(x::Vector{<:Real})
 
 Pick one index in `1:length(x)` at random using the elements of `x` as weights.
 """
-function rand_categorical(x::Vector{<:Real})
+function rand_categorical(x::Vector{<:Real}, s = sum(x))
     if isempty(x)
         return 0
     end
@@ -21,11 +21,27 @@ function rand_categorical(x::Vector{<:Real})
     return i
 end
 
+function rand_categorical(x::SparseVector{<:Real}, s=sum(x))
+    if isempty(x)
+        return 0
+    end
+    r = rand()
+    s = sum(x)
+    t = 0.0
+    for (k,v) in zip(findnz(x)...)
+        t += v
+        if r*s <= t
+            return k
+        end
+    end
+    return length(x)
+end
+
 """
     rand_combination(n,k)
 
 Return a random combination of `k` elements in `1:n`.
-""" 
+"""
 function rand_combination(n::Integer, k::Integer)
     if k < n && k > 0
         c = Vector{Int64}(undef, k)
@@ -39,4 +55,3 @@ function rand_combination(n::Integer, k::Integer)
         return []
     end
 end
-
