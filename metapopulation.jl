@@ -7,33 +7,15 @@ using DifferentialEquations
 using Statistics
 
 include("randutils.jl")
+include("utils.jl")
 
 struct Metapopulation{T<:AbstractSimpleGraph}
     g::T
     V::Vector{<:Integer} # node capacities
-    β::Real # infection rate
-    μ::Real # migration rate
+    β::Float64 # infection rate
+    μ::Float64 # migration rate
 end
 
-function normalized_laplacian(g::SimpleGraph)
-    L = float(laplacian_matrix(g))
-    for i in vertices(g)
-        if L[i,i] != 0
-            L[i,:] /= L[i,i]
-        end
-    end
-    return L
-end
-
-function normalized_laplacian(g::SimpleDiGraph)
-    L = float(laplacian_matrix(g))
-    for i in vertices(g)
-        if L[i,i] != 0
-            L[i,:] /= L[i,i]
-        end
-    end
-    return L
-end
 
 """
     metapopulation_gillespie(mp, s_0, i_0; kwargs)
@@ -47,7 +29,7 @@ Keyword arguments
   * `tmax=100.0`: maximum time of the simulation
   * `normalize_migration=true`: whether or not migration rate should be the same for all nodes (currently, does nothing if set to `false`)
 """
-function metapopulation_gillespie(mp::Metapopulation{SimpleGraph{T}}, s0, i0; nmax=1000, tmax=100.0, normalize_migration=true) where T <: Integer
+function metapopulation_gillespie(mp::Metapopulation{SimpleGraph{T}}, s0, i0; nmax=1000, tmax=100.0, normalize_migration=true) where T
     t = 0.0
     n = 1
     β = mp.β
@@ -56,8 +38,8 @@ function metapopulation_gillespie(mp::Metapopulation{SimpleGraph{T}}, s0, i0; nm
     N = length(vertices(mp.g))
     ts = Vector{typeof(t)}(undef, nmax)
     ts[1] = t
-    ss = Array{typeof(s_0[1]),2}(undef, nmax, length(s0))
-    is = Array{typeof(i_0[1]),2}(undef, nmax, length(i0))
+    ss = Array{typeof(s0[1]),2}(undef, nmax, length(s0))
+    is = Array{typeof(i0[1]),2}(undef, nmax, length(i0))
     ss[1,:] = s0
     is[1,:] = i0
     s = copy(s0)
@@ -149,26 +131,30 @@ Keyword arguments:
   * `nbins`: the number of time steps at which the average is computed
 """
 function metapopulation_montecarlo(mp::Metapopulation{SimpleGraph{T}}, s0, i0; nmax = 1000, tmax = 100.0, nsims = 100, nbins = 100) where T <: Integer
-    n = nv(mp.g)
+    N = nv(mp.g)
     ts = LinRange(0.0, tmax, nbins)
-    s_sum = zeros(nbins, n)
-    #s_sumofsquares = zeros(nbins, n)
-    i_sum = zeros(nbins, n)
-    #i_sumofsquares = zeros(nbins, n)
-    for j in 1:nsims
+    Xs_sum = zeros(nbins, N)
+    Ms_sum = zeros(nbins, N)
+    Xi_sum = zeros(nbins, N)
+    Mi_sum = zeros(nbins, N)
+    Xn = Vector(undef, N)
+    Δn = Vector(undef, N)
+    for n in 1:nsims
         t, s, i = metapopulation_gillespie(mp, s0, i0, tmax=tmax, nmax=nmax)
         l = 1
         for k in 1:nbins
             while l < length(t) && t[l+1] < ts[k]
                 l += 1
             end
-            s_sum[k,:] += s[l,:]
-            i_sum[k,:] += i[l,:]
+            Xn .= s[l,:]
+            Δn .= Xn .- Xs_sum[k,:]/(n>1 ? n-1 : 1)
+            Xs_sum[k,:] .+= Xn
+            Ms_sum[k] .+= Δn.*(Xn.-Xs_sum[k]/n)
+            Xn .= i[l,:]
+            Δn .= Xn .- Xi_sum[k,:]/(n>1 ? n-1 : 1)
+            Xi_sum[k,:] .+= Xn
+            Mi_sum[k,:] .+= Δn.*(Xn.-Xi_sum[k]/n)
         end
     end
-    mean_s = s_sum/nsims
-    mean_i = i_sum/nsims
-    #var_s = s_sumofsquares/nsims - mean_s.^2
-    #var_i = i_sumofsquares/nsims - mean_i.^2
-    return ts, mean_s, mean_i#, sqrt.(var_s), sqrt.(var_i)
+    return ts, Xs_sum/n, Xi_sum/n, Ms_sum/(n-1), Mi_sum/(n-1)
 end

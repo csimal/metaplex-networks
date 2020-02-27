@@ -41,7 +41,9 @@ function contact_process_gillespie(g::AbstractSimpleGraph{<:Integer}, Xi::BitVec
     end
     a0 = sum(a)
     #a0 = nreactions*β
-    Es = Vector{Tuple{Int64,Int64}}(undef, nmax-1) # which node gets infected, and by whom
+    if record
+        Es = Vector{Tuple{Int64,Int64}}(undef, nmax-1) # which node gets infected, and by whom
+    end
     ts = zeros(nmax)
     t = 0.0
     n = 1
@@ -51,7 +53,7 @@ function contact_process_gillespie(g::AbstractSimpleGraph{<:Integer}, Xi::BitVec
         X[k] = true
         #nreactions -= Int(floor(a[k]/β))
         a[k] = 0.0
-        for i in filter(j->!X[j],outneighbors(g,k))
+        for i in Iterators.filter(j->!X[j],outneighbors(g,k))
             a[i] += β
             #nreactions += 1
         end
@@ -62,8 +64,10 @@ function contact_process_gillespie(g::AbstractSimpleGraph{<:Integer}, Xi::BitVec
         a0 = sum(a)
         t += τ
         ts[n+1] = t
-        j = rand(filter(l->X[l],inneighbors(g,k)))
-        Es[n] = (k,j)
+        if record
+            j = rand(filter(l->X[l],inneighbors(g,k)))
+            Es[n] = (k,j)
+        end
         n += 1
     end
     if record
@@ -104,7 +108,7 @@ Keyword arguments:
   * `nsims=100`: number of simulations to perform
   * `nbins`: the number of time steps at which the average is computed
 """
-function contact_process_montecarlo(g::AbstractSimpleGraph{<:Integer}, Xi::BitVector, β::Real; nmax = 1000, tmax = 100.0, nsims=1000, nbins = 100)
+function contact_process_montecarlo(g::AbstractSimpleGraph{<:Integer}, Xi::BitVector, β::Real; nmax = length(Xi), tmax = 100.0, nsims=1000, nbins = 100)
     ts = LinRange(0.0, tmax, nbins)
     X_sum = zeros(nbins)
     M_sum = zeros(nbins) # running SSE

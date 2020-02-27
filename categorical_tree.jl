@@ -2,6 +2,8 @@ import Base.length
 import Base.isempty
 import Base.getindex
 import Base.setindex!
+import Base.firstindex
+import Base.lastindex
 import Base.sum
 
 # Use a binary tree to describe a categorical distribution
@@ -41,6 +43,9 @@ end
 isempty(ct::CategoricalTree{<:Real}) = isempty(ct.as[1])
 length(ct::CategoricalTree{<:Real}) = length(ct.as[1])
 
+firstindex(::CategoricalTree) = 1
+lastindex(ct::CategoricalTree) = length(ct)
+
 getindex(ct::CategoricalTree{<:Real}, i) = ct.as[1][i]
 
 function setindex!(ct::CategoricalTree{<:Real}, x, i)
@@ -55,6 +60,7 @@ function setindex!(ct::CategoricalTree{<:Real}, x, i)
         end
     end
 end
+
 
 # since we already computed the sum, we might as well make use of it
 sum(ct::CategoricalTree{<:Real}) = ct.as[end][1]

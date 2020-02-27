@@ -72,14 +72,19 @@ checkclasses(g, cs)
 
 g = graphfamous("karate")
 cs, v = network_automorphism_classes(g)
-ps = [(k,v[k]) for k in vcat(classes...)]
 classes = filter(c->length(c)>1, cs)
+allclasses = vcat(classes...)
+ps = [(k,v[k]) for k in allclasses]
 colors = ColorSchemes.Set1_4.colors;
 nodecols = fill(colorant"lightgray", nv(g));
 for i in 1:length(classes), v in classes[i]
     nodecols[v] = colors[i];
 end
 gplot(g, nodelabel=1:34, nodefillc = nodecols)
+
+A = float(adjacency_matrix(g))
+λ, V = eigen(Array(A))
+[V[allclasses,i] for i in 1:34 if any(abs.(V[:,i]) .< 1e-6) ]
 
 function test(N)
     p = 0.75
