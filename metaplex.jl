@@ -30,6 +30,9 @@ function metaplex_gillespie(mp::Metaplex{T1,T2}, Xi0::BitVector, Xμ0::Vector{In
     g = mp.g
     M = nv(mp.h) # number of populations
     h = mp.h
+    #od = map(k-> k>0 ? 1/float(k) : 0, outdegree(h))
+    #od = outdegree(h)
+    od = outdegree(h) .> 0
     Xi = copy(Xi0) # epidemic state of each individual
     Xμ = copy(Xμ0) # location of each individual
     popcounts = zeros(Int,2,M) # number of of individuals susceptible and infected for each component
@@ -54,8 +57,8 @@ function metaplex_gillespie(mp::Metaplex{T1,T2}, Xi0::BitVector, Xμ0::Vector{In
             #nreactions += l
         end
     end
-    a[N+1:N+M] .= D[1].*popcounts[1,:].*(outdegree(h) .> 0)
-    a[N+M+1:N+2*M] .= D[2].*popcounts[2,:].*(outdegree(h) .> 0)
+    a[N+1:N+M] .= D[1].*popcounts[1,:].*od
+    a[N+M+1:N+2*M] .= D[2].*popcounts[2,:].*od
     if sampling_method == :tree
         a = CategoricalTree(a)
     end
@@ -74,10 +77,8 @@ function metaplex_gillespie(mp::Metaplex{T1,T2}, Xi0::BitVector, Xμ0::Vector{In
             push!(pops_i[Xμ[k]], k)
             popcounts[1,Xμ[k]] = length(pops_s[Xμ[k]])
             popcounts[2,Xμ[k]] = length(pops_i[Xμ[k]])
-            if length(outneighbors(h,Xμ[k])) > 0
-                a[N+Xμ[k]] = D[1]*popcounts[1,Xμ[k]]
-                a[N+M+Xμ[k]] += D[2]*popcounts[2,Xμ[k]]
-            end
+            a[N+Xμ[k]] = D[1]*popcounts[1,Xμ[k]]*od[Xμ[k]]
+            a[N+M+Xμ[k]] += D[2]*popcounts[2,Xμ[k]]*od[Xμ[k]]
             a[k] = 0.0
             for i in Iterators.filter(j->!Xi[j] && Xμ[j]==Xμ[k], outneighbors(g,k))
                 a[i] += β
@@ -91,8 +92,8 @@ function metaplex_gillespie(mp::Metaplex{T1,T2}, Xi0::BitVector, Xμ0::Vector{In
             push!(pops_s[ν], i)
             popcounts[1,μ] = length(pops_s[μ])
             popcounts[1,ν] = length(pops_s[ν])
-            a[N+μ] = D[1]*popcounts[1,μ]
-            a[N+ν] = D[1]*popcounts[1,ν]*(outdegree(h,ν)>0)
+            a[N+μ] = D[1]*popcounts[1,μ]*od[μ]
+            a[N+ν] = D[1]*popcounts[1,ν]*od[ν]
             l = length(filter(j->Xi[j] && Xμ[j]==ν, inneighbors(g,i)))
             a[i] = β*l
         else # a random infected node from k-N-M moves to another population
@@ -111,8 +112,8 @@ function metaplex_gillespie(mp::Metaplex{T1,T2}, Xi0::BitVector, Xμ0::Vector{In
             end
             popcounts[2,μ] = length(pops_i[μ])
             popcounts[2,ν] = length(pops_i[ν])
-            a[N+M+μ] = D[2]*popcounts[2,μ]
-            a[N+M+ν] = D[2]*popcounts[2,ν]
+            a[N+M+μ] = D[2]*popcounts[2,μ]*od[μ]
+            a[N+M+ν] = D[2]*popcounts[2,ν]*od[ν]
         end
         a0 = sum(a)
         t += τ
@@ -138,12 +139,12 @@ function metaplex_ode(mp::Metaplex, Xi0::BitVector, Xμ0::Vector{Int}, β, D::Ve
     end
     f! = function(du,u,p,t)
         for i in 1:N
-            du[1,i,:] .= .-D[1]*L*u[1,i,:]
-            du[2,i,:] .= .-D[2]*L*u[2,i,:]
+            du[1,i,:] .= .-D[1]*L'*u[1,i,:]
+            du[2,i,:] .= .-D[2]*L'*u[2,i,:]
         end
         for μ in 1:M
-            infection = β*u[1,:,μ].*(A*u[2,:,μ])
-            du[1,:,μ] .+= .-infection
+            infection = β*(u[1,:,μ].*(A*u[2,:,μ]) )#.+ u[1,:,μ].*u[2,:,μ])
+            du[1,:,μ] .-= infection
             du[2,:,μ] .+= infection
         end
     end

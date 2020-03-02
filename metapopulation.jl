@@ -109,8 +109,8 @@ function metapopulation_ode(mp::Metapopulation{<:AbstractSimpleGraph{<:Integer}}
     f! = function(dx,x,p,t)
         n = p
         tmp = mp.β*x[1:n].*x[n+1:2*n]./(mp.V).^2
-        dx[1:n] = -tmp - μ*L*x[1:n]./mp.V
-        dx[n+1:2*n] = tmp - μ*L*x[n+1:2*n]./mp.V
+        dx[1:n] = -tmp - μ*L'*x[1:n]./mp.V
+        dx[n+1:2*n] = tmp - μ*L'*x[n+1:2*n]./mp.V
     end
     prob = ODEProblem(f!, vcat(float(s0),float(i0)), (0.0,tmax), N)
     solve(prob, Tsit5()) # order 5 solver

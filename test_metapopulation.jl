@@ -12,9 +12,12 @@ frac_infected = 0.01
 ninfected = Int(frac_infected*P)
 g = complete_graph(N)
 g = random_configuration_model(N,fill(3,N))
+g = path_graph(N)
 V = fill(volume, N)
-β = 0.1
-μ = 0.3
+β = 0.0
+μ = 0.5
+tmax = 10.0
+
 mp = Metapopulation(g,V,β,μ)
 s0 = fill(P, N)
 i0 = fill(ninfected, N)
@@ -22,7 +25,7 @@ i0 = zeros(Int, N)
 s0[1] = P-ninfected
 i0[1] = ninfected
 Ptot = sum(s0) + sum(i0)
-ts, s, i = metapopulation_gillespie(mp,s0,i0, nmax = 1000000, tmax=0.8)
+ts, s, i = metapopulation_gillespie(mp,s0,i0, nmax = 1000000, tmax=tmax)
 
 
 plot(ts, sum(i, dims=2)/Ptot,
@@ -40,7 +43,7 @@ plot(ts,i/P,
     )
 plot(ts,s/Ptot, line=:steppre)
 
-sol = metapopulation_ode(mp, s0, i0, tmax=0.8)
+sol = metapopulation_ode(mp, s0, i0, tmax=tmax)
 
 plot(sol, vars = collect(N+1:2*N),
     label="",
@@ -49,7 +52,11 @@ plot(sol, vars = collect(N+1:2*N),
     )
 plot!(ts,i, line=:steppre, label="")
 
-tsmc, mean_s, mean_i = metapopulation_montecarlo(mp,s0,i0,tmax=0.8, nmax=150000, nbins=200)
+us = hcat([sol.u[t][N+1:2*N] for t in 1:length(sol.t)]...)
+sum(us, dims=1)
+plot(sol.t, sum(us, dims=1)')
+
+tsmc, mean_s, mean_i = metapopulation_montecarlo(mp,s0,i0,tmax=tmax, nmax=150000, nbins=200)
 
 plot(tsmc, mean_i,
     label="",
