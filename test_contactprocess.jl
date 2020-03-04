@@ -2,7 +2,6 @@ using LightGraphs
 using LightGraphs.SimpleGraphs
 using DifferentialEquations
 using Plots
-using Random
 using GraphPlot
 
 include("randutils.jl")
@@ -20,9 +19,9 @@ n_infected =  Int(N*frac_infected)
 X = falses(N)
 X[1:n_infected] .= true # complete graph. choice of nodes makes no difference
 
-ts, Xs = contact_process_gillespie(g, X, β)
+t, Xs = contact_process_gillespie(g, X, β)
 
-plot(ts, Xs/N,
+plot(t, Xs/N,
     xlabel="time",
     ylabel="Fraction of infected individuals",
     label="",
@@ -30,22 +29,22 @@ plot(ts, Xs/N,
     title="Contact Process"
     )
 
-tmean, Xmean, Mmean = contact_process_montecarlo(g, X, β, tmax = 0.3, nbins=400, nsims = 1000)
-#Smean = sqrt.(Mmean)
-plot(tmean, Xmean/N,
+t_mc, X_mc, sd_mc = contact_process_montecarlo(g, X, β, tmax = 0.3, nbins=400, nsims = 1000)
+
+plot(t_mc, X_mc/N,
     label="Average (Contact Process)",
     legend=:bottomright,
     xlabel = "time",
     ylabel = "Fraction of infected individuals",
     )
 
-mp = Metapopulation(SimpleGraph(1), [1], β, 0.0)
+mpp = Metapopulation(SimpleGraph(1), [1], β, 0.0)
 s0 = [N-n_infected]
 i0 = [n_infected]
 
-tsmp, smp, imp = metapopulation_gillespie(mp,s0,i0, nmax = 100, tmax=0.3)
+t_mpp, s_mpp, i_mpp = metapopulation_gillespie(mpp,s0,i0, nmax = 100, tmax=0.3)
 
-plot(tsmp, sum(imp, dims=2)/N,
+plot(t_mpp, sum(i_mpp, dims=2)/N,
     label="",
     line=:steppre,
     xlabel="Time",
@@ -53,21 +52,21 @@ plot(tsmp, sum(imp, dims=2)/N,
     title="Metapopulation"
     )
 
-tsmp_mean, smp_mean, imp_mean = metapopulation_montecarlo(mp,s0,i0, nmax=100, tmax=0.3, nbins=400)
+t_mpp_mc, s_mpp_mc, i_mpp_mc = metapopulation_montecarlo(mpp,s0,i0, nmax=100, tmax=0.3, nbins=400)
 
-plot(tmean, Xmean/N,
+plot(t_mc, X_mc/N,
     label="Average (Contact Process)",
     legend=:bottomright,
     xlabel = "time",
     ylabel = "Fraction of infected individuals",
     )
-plot!(tsmp_mean, imp_mean/N,
+plot!(t_mpp_mc, i_mpp_mc/N,
     label = "Average (Metapopulation)",
     xlabel="Time",
     ylabel="Fraction of infected individuals"
     )
 
-plot(tmean, log10.(abs.((Xmean-imp_mean)/N)),
+plot(t_mc, log10.(abs.((X_mc-i_mpp_mc)/N)),
     xlabel = "time",
     ylabel="log10 Deviation")
 
@@ -84,7 +83,7 @@ X = falses(N)
 X[1:n_infected] .= true # complete graph. choice of nodes makes no difference
 
 Random.seed!(42) # magic number
-ts1, Xs1, Es1 = contact_process_gillespie(g, X, β, record=true)
+t1, Xs1, Es1 = contact_process_gillespie(g, X, β, record=true)
 
 Random.seed!(42) # magic number
 ts2, Xs2, Es2 = contact_process_gillespie(g, X, β, record=true)
@@ -103,29 +102,31 @@ g = random_configuration_model(N,fill(3,N))
 β = 0.3
 X = falses(N)
 X[rand_combination(N,50)] .= true
-
+tmax=0.05
 @time ts, Xs = contact_process_gillespie(g, X, β)
 @time ts, Xs, Es = contact_process_gillespie(g, X, β, record=true)
 
 plot(ts, Xs/N, xlabel="time", ylabel="Fraction of infected individuals", label="")
 
-sol = contact_process_ode(g, X, β, tmax=20.0)
 
-plot(sol, label="")
-us = hcat(sol.u...)'
-plot!(sol.t, sum(us,dims=2)/N, label="Mean Field")
 
-@time tmean, Xmean, Mmean = contact_process_montecarlo(g, X, β, tmax = 20.0, nbins=400, nsims = 1000)
-Smean = sqrt.(Mmean)
-plot(tmean, Xmean/N,
+@time t_mc, X_mc, sd_mc = contact_process_montecarlo(g, X, β, tmax = tmax, nbins=400, nsims = 1000)
+
+t_mf, X_mf, sol = contact_process_ode(g, X, β, tmax=0.05, saveat=t_mc)
+
+plot(t_mf, X_mf, label="")
+
+plot(t_mf, sum(X_mf, dims=2)/N, label="Mean Field")
+
+plot(t_mc, X_mc/N,
     label="Average",
     legend=:bottomright,
     xlabel = "time",
     ylabel = "Fraction of infected individuals"
     )
-plot!(tmean, (Xmean+Smean)/N, linestyle=:dash, color=:lightblue, label="Standard Deviation")
-plot!(tmean, (Xmean-Smean)/N, linestyle=:dash, color=:lightblue, label="")
-plot!(sol.t, sum(us,dims=2)/N, label="Individual Based Approximation")
+plot!(t_mc, (X_mc+sd_mc)/N, linestyle=:dash, color=:lightblue, label="Standard Deviation")
+plot!(t_mc, (X_mc-sd_mc)/N, linestyle=:dash, color=:lightblue, label="")
+plot!(t_mf, sum(X_mf,dims=2)/N, label="Individual Based Mean Field")
 
 using Statistics
 using ProgressMeter

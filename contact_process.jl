@@ -3,6 +3,7 @@ using LightGraphs.SimpleGraphs
 using LinearAlgebra
 using SparseArrays
 using DifferentialEquations
+using ProgressMeter
 
 include("randutils.jl")
 include("categorical_tree.jl")
@@ -87,14 +88,15 @@ Integrate the mean field approximation for SI spreading on network `g`.
 Keyword arguments:
   * `tmax = 100.0`: maximum time of the simulation.
 """
-function contact_process_ode(g::AbstractSimpleGraph{<:Integer}, Xi, β::Real; tmax=100.0)
+function contact_process_ode(g::AbstractSimpleGraph{<:Integer}, Xi, β::Real; tmax=100.0, saveat=[])
     A = adjacency_matrix(g)
     u0 = float(Xi)
     f! = function(du,u,p,t)
         du .= β*(1.0 .- u).*(A*u)
     end
     prob = ODEProblem(f!, u0, (0.0,tmax))
-    return solve(prob, Tsit5())
+    sol = solve(prob, Tsit5(), saveat=saveat)
+    return  sol.t, hcat(sol.u...)', sol
 end
 
 """
@@ -112,6 +114,7 @@ function contact_process_montecarlo(g::AbstractSimpleGraph{<:Integer}, Xi::BitVe
     ts = LinRange(0.0, tmax, nbins)
     X_sum = zeros(nbins)
     M_sum = zeros(nbins) # running SSE
+    p = Progress(nsims, dt=1.0)
     for n in 1:nsims
         t, X = contact_process_gillespie(g, Xi, β, nmax=nmax, tmax=tmax)
         l = 1
@@ -124,6 +127,7 @@ function contact_process_montecarlo(g::AbstractSimpleGraph{<:Integer}, Xi::BitVe
             X_sum[k] += Xn
             M_sum[k] += Δn*(Xn-X_sum[k]/n)
         end
+        ProgressMeter.next!(p; showvalues= [(:n,n)])
     end
-    return ts, X_sum/nsims, M_sum/(nsims-1)
+    return ts, X_sum/nsims, sqrt.(M_sum/(nsims-1))
 end

@@ -35,7 +35,7 @@ function metapopulation_gillespie(mp::Metapopulation{SimpleGraph{T}}, s0, i0; nm
     β = mp.β
     μ = mp.μ
     V = mp.V
-    N = length(vertices(mp.g))
+    N = nv(mp.g)
     ts = Vector{typeof(t)}(undef, nmax)
     ts[1] = t
     ss = Array{typeof(s0[1]),2}(undef, nmax, length(s0))
@@ -102,19 +102,22 @@ Integrate the Mean Field equations for SI spreading on the metapopulation descri
 Keyword arguments:
   * `tmax=100.0`: the maximum time of the simulation
 """
-function metapopulation_ode(mp::Metapopulation{<:AbstractSimpleGraph{<:Integer}}, s0, i0; tmax = 100.0)
+function metapopulation_ode(mp::Metapopulation{<:AbstractSimpleGraph{<:Integer}}, s0, i0; tmax = 100.0, saveat=[])
     L = normalized_laplacian(mp.g)
     # define a special operator for solving the linear part of the equation exactly
     N = nv(mp.g)
     f! = function(dx,x,p,t)
         n = p
         tmp = mp.β*x[1:n].*x[n+1:2*n]./(mp.V).^2
-        dx[1:n] = -tmp - μ*L'*x[1:n]./mp.V
-        dx[n+1:2*n] = tmp - μ*L'*x[n+1:2*n]./mp.V
+        dx[1:n] = -tmp - mp.μ*L'*x[1:n]./mp.V
+        dx[n+1:2*n] = tmp - mp.μ*L'*x[n+1:2*n]./mp.V
     end
     prob = ODEProblem(f!, vcat(float(s0),float(i0)), (0.0,tmax), N)
-    solve(prob, Tsit5()) # order 5 solver
-    # tried to use an exact solver for the linear part, but couldn't get it to work :(
+    sol = solve(prob, Tsit5(), saveat=saveat) # order 5 solver
+    u = hcat(sol.u...)'
+    s = u[:,1:N]
+    i = u[:,N+1:2*N]
+    return sol.t, s, i, sol
 end
 
 """
@@ -149,12 +152,12 @@ function metapopulation_montecarlo(mp::Metapopulation{SimpleGraph{T}}, s0, i0; n
             Xn .= s[l,:]
             Δn .= Xn .- Xs_sum[k,:]/(n>1 ? n-1 : 1)
             Xs_sum[k,:] .+= Xn
-            Ms_sum[k] .+= Δn.*(Xn.-Xs_sum[k]/n)
+            Ms_sum[k,:] .+= Δn.*(Xn.-Xs_sum[k]/n)
             Xn .= i[l,:]
             Δn .= Xn .- Xi_sum[k,:]/(n>1 ? n-1 : 1)
             Xi_sum[k,:] .+= Xn
             Mi_sum[k,:] .+= Δn.*(Xn.-Xi_sum[k]/n)
         end
     end
-    return ts, Xs_sum/n, Xi_sum/n, Ms_sum/(n-1), Mi_sum/(n-1)
+    return ts, Xs_sum/nsims, Xi_sum/nsims, Ms_sum/(nsims-1), Mi_sum/(nsims-1)
 end

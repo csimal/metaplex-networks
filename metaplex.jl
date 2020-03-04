@@ -124,7 +124,7 @@ function metaplex_gillespie(mp::Metaplex{T1,T2}, Xi0::BitVector, Xμ0::Vector{In
     return ts[1:n], pcs[1:n,:,:]
 end
 
-function metaplex_ode(mp::Metaplex, Xi0::BitVector, Xμ0::Vector{Int}, β, D::Vector; tmax=100.0)
+function metaplex_ode(mp::Metaplex, Xi0::BitVector, Xμ0::Vector{Int}, β, D::Vector; tmax=100.0, saveat=[])
     N = nv(mp.g)
     M = nv(mp.h)
     A = adjacency_matrix(mp.g)
@@ -143,13 +143,22 @@ function metaplex_ode(mp::Metaplex, Xi0::BitVector, Xμ0::Vector{Int}, β, D::Ve
             du[2,i,:] .= .-D[2]*L'*u[2,i,:]
         end
         for μ in 1:M
-            infection = β*(u[1,:,μ].*(A*u[2,:,μ]) )#.+ u[1,:,μ].*u[2,:,μ])
+            infection = β*(u[1,:,μ].*(A*u[2,:,μ]) )# .+ u[1,:,μ].*u[2,:,μ])
             du[1,:,μ] .-= infection
             du[2,:,μ] .+= infection
         end
     end
     prob = ODEProblem(f!, u0, (0.0,tmax), N)
-    solve(prob, Tsit5())
+    sol = solve(prob, Tsit5(), saveat=saveat, abstol=1e-09)
+    s = zeros(length(sol.t), N, M)
+    i = zeros(length(sol.t), N, M)
+    for t in 1:length(sol.t)
+        s[t,:,:] = sol.u[t][1,:,:]
+        i[t,:,:] = sol.u[t][2,:,:]
+    end
+    sμ = reshape(sum(s, dims=2), length(sol.t), M)
+    iμ = reshape(sum(i, dims=2), length(sol.t), M)
+    return sol.t, s, i, sμ, iμ, sol
 end
 
 function metaplex_montecarlo(mp::Metaplex, Xi0::BitVector, Xμ0::Vector{Int}, β, D::Vector; nmax=length(Xi0), tmax=100.0, nsims=1000, nbins=400)

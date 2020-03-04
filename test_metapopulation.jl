@@ -5,7 +5,7 @@ using Plots
 
 include("metapopulation.jl")
 
-N = 100
+N = 10
 P = 1000
 volume = 1
 frac_infected = 0.01
@@ -14,9 +14,9 @@ g = complete_graph(N)
 g = random_configuration_model(N,fill(3,N))
 g = path_graph(N)
 V = fill(volume, N)
-β = 0.0
-μ = 0.5
-tmax = 10.0
+β = 0.3
+μ = 0.1
+tmax = 1.0
 
 mp = Metapopulation(g,V,β,μ)
 s0 = fill(P, N)
@@ -25,49 +25,56 @@ i0 = zeros(Int, N)
 s0[1] = P-ninfected
 i0[1] = ninfected
 Ptot = sum(s0) + sum(i0)
-ts, s, i = metapopulation_gillespie(mp,s0,i0, nmax = 1000000, tmax=tmax)
 
+t, s, i = metapopulation_gillespie(mp,s0,i0, nmax = 1000000, tmax=tmax)
 
-plot(ts, sum(i, dims=2)/Ptot,
+plot(t, sum(i, dims=2)/Ptot,
     label="",
     line=:steppre,
     xlabel="Time",
     ylabel="Fraction of infected individuals"
     )
 
-plot(ts,i/P,
+plot(t,i/P,
     line=:steppre,
     label="",
     xlabel = "Time",
     ylabel = "Normalized #infected individuals"
     )
-plot(ts,s/Ptot, line=:steppre)
 
-sol = metapopulation_ode(mp, s0, i0, tmax=tmax)
+plot(t,s/Ptot, line=:steppre)
 
-plot(sol, vars = collect(N+1:2*N),
+
+t_mc, s_mc, i_mc = metapopulation_montecarlo(mp,s0,i0,tmax=tmax, nmax=150000, nbins=200)
+
+t_mf, s_mf, i_mf, sol = metapopulation_ode(mp, s0, i0, tmax=tmax, saveat=t_mc)
+
+plot(t_mf, i_mf,
+    label="",
+    xlabel="Time",
+    ylabel="#infected individuals",
+    linestyle=:dash
+    )
+plot!(t, i, line=:steppre, label="")
+
+plot(t_mc, i_mc,
     label="",
     xlabel="Time",
     ylabel="#infected individuals"
     )
-plot!(ts,i, line=:steppre, label="")
+plot!(t_mf, i_mf, label="", linestyle=:dash)
 
-us = hcat([sol.u[t][N+1:2*N] for t in 1:length(sol.t)]...)
-sum(us, dims=1)
-plot(sol.t, sum(us, dims=1)')
+plot(t_mc, i_mf-i_mc, label="")
 
-tsmc, mean_s, mean_i = metapopulation_montecarlo(mp,s0,i0,tmax=tmax, nmax=150000, nbins=200)
-
-plot(tsmc, mean_i,
-    label="",
+plot(t_mc, sum(i_mc, dims=2)/Ptot,
+    label="Average",
     xlabel="Time",
-    ylabel="#infected individuals"
+    ylabel="Fraction of infected individuals",
+    legend=:bottomright
     )
-plot!(sol, vars = collect(N+1:2*N), label="")
+plot!(t_mf, sum(i_mf, dims=2)/Ptot,
+    label="Mean Field")
 
-u = sol(tsmc, idxs=collect(N+1:2*N))
-us = hcat(u.u...)'
-plot(tsmc, us-mean_i, label="")
 
 function transient_time_montecarlo(mp::Metapopulation, s0, i0; tmax=100.0, nmax=1000, nsims = 100)
     totalpop = sum(s0) + sum(i0)
