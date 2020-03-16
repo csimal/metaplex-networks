@@ -1,5 +1,3 @@
-#using Random
-using SparseArrays
 
 """
     rand_categorical(x::Vector{<:Real})
@@ -19,22 +17,6 @@ function rand_categorical(x::Vector{<:Real}, s = sum(x))
         t += x[i]
     end
     return i
-end
-
-function rand_categorical(x::SparseVector{<:Real}, s=sum(x))
-    if isempty(x)
-        return 0
-    end
-    r = rand()
-    s = sum(x)
-    t = 0.0
-    for (k,v) in zip(findnz(x)...)
-        t += v
-        if r*s <= t
-            return k
-        end
-    end
-    return length(x)
 end
 
 """

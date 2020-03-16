@@ -3,6 +3,7 @@ using LightGraphs.SimpleGraphs
 using LinearAlgebra
 using SparseArrays
 using DifferentialEquations
+using ProgressMeter
 #using DiffEqOperators
 using Statistics
 
@@ -27,9 +28,8 @@ Perform a single simulation of SI spreading on the metapopulation described by `
 Keyword arguments
   * `nmax=1000`: maximum number of iterations of the algorithm
   * `tmax=100.0`: maximum time of the simulation
-  * `normalize_migration=true`: whether or not migration rate should be the same for all nodes (currently, does nothing if set to `false`)
 """
-function metapopulation_gillespie(mp::Metapopulation{SimpleGraph{T}}, s0, i0; nmax=1000, tmax=100.0, normalize_migration=true) where T
+function metapopulation_gillespie(mp::Metapopulation{SimpleGraph{T}}, s0, i0; nmax=1000, tmax=100.0) where T
     t = 0.0
     n = 1
     β = mp.β
@@ -142,6 +142,7 @@ function metapopulation_montecarlo(mp::Metapopulation{SimpleGraph{T}}, s0, i0; n
     Mi_sum = zeros(nbins, N)
     Xn = Vector(undef, N)
     Δn = Vector(undef, N)
+    p = Progress(nsims, dt=1.0)
     for n in 1:nsims
         t, s, i = metapopulation_gillespie(mp, s0, i0, tmax=tmax, nmax=nmax)
         l = 1
@@ -158,6 +159,7 @@ function metapopulation_montecarlo(mp::Metapopulation{SimpleGraph{T}}, s0, i0; n
             Xi_sum[k,:] .+= Xn
             Mi_sum[k,:] .+= Δn.*(Xn.-Xi_sum[k]/n)
         end
+        ProgressMeter.next!(p; showvalues= [(:n,n)])
     end
-    return ts, Xs_sum/nsims, Xi_sum/nsims, Ms_sum/(nsims-1), Mi_sum/(nsims-1)
+    return ts, Xs_sum/nsims, Xi_sum/nsims, sqrt.(abs.(Ms_sum/(nsims-1))), sqrt.(abs.(Mi_sum/(nsims-1)))
 end
