@@ -3,9 +3,9 @@ using LightGraphs.SimpleGraphs
 using Plots
 using ColorSchemes
 
-include("metaplex.jl")
-include("metapopulation.jl")
-include("contact_process.jl")
+include("SI\\metaplex.jl")
+include("SI\\metapopulation.jl")
+include("SI\\contact_process.jl")
 
 N = 100
 M = 10

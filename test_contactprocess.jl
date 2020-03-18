@@ -4,9 +4,9 @@ using DifferentialEquations
 using Plots
 using GraphPlot
 
-include("randutils.jl")
-include("contact_process.jl")
-include("metapopulation.jl")
+include("utils\\randutils.jl")
+include("SI\\contact_process.jl")
+include("SI\\metapopulation.jl")
 
 # Test that contact process on a complete graph is equivalent to single node metapopulation
 N = 100

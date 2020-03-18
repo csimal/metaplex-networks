@@ -3,7 +3,7 @@ using LightGraphs.SimpleGraphs
 using DifferentialEquations
 using Plots
 
-include("metapopulation.jl")
+include("SI\\metapopulation.jl")
 
 N = 10
 P = 1000

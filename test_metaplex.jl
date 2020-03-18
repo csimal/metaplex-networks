@@ -1,7 +1,7 @@
 using LightGraphs
 using LightGraphs.SimpleGraphs
 
-include("metaplex.jl")
+include("SI\\metaplex.jl")
 
 N = 100
 M = 10

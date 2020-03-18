@@ -2,8 +2,8 @@ using LightGraphs
 using Plots
 using DelimitedFiles
 
-include("categorical_tree.jl")
-include("contact_process.jl")
+include("utils\\categorical_tree.jl")
+include("SI\\contact_process.jl")
 
 A = readdlm("test3reg.dat", ',', Int, '\n')
 

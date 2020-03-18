@@ -1,5 +1,5 @@
-include("categorical_tree.jl")
-include("randutils.jl")
+include("utils\\categorical_tree.jl")
+include("utils\\randutils.jl")
 
 a = collect(1:5)
 ct = CategoricalTree{Int64}(a)
