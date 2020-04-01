@@ -3,9 +3,9 @@ using LightGraphs.SimpleGraphs
 using Plots
 using ColorSchemes
 
-include("SI\\metaplex.jl")
-include("SI\\metapopulation.jl")
-include("SI\\contact_process.jl")
+include("metaplex.jl")
+include("metapopulation.jl")
+include("contact_process.jl")
 
 N = 100
 M = 10
@@ -21,7 +21,6 @@ D = 0.1
 
 tmax = 7.0
 nmax = 50000
-
 
 # Metapopulation
 mpp = Metapopulation(h, fill(1, M), β, D)
@@ -98,7 +97,7 @@ plot(t_mpx_mc, i_mpx_mc,
     ylabel="#infected individuals",
     linestyle=:dash
 )
-plot!(t_mpx_mf, iμ_mpx_mf, label="")
+    plot!(t_mpx_mf, iμ_mpx_mf, label="")
 
 plot(t_mpx_mc, sum(i_mpx_mc, dims=2)/(N*M),
     label="Average (Metaplex)",

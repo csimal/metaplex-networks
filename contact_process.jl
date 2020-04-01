@@ -5,8 +5,8 @@ using SparseArrays
 using DifferentialEquations
 using ProgressMeter
 
-include("randutils.jl")
-include("categorical_tree.jl")
+include("utils\\randutils.jl")
+include("utils\\categorical_tree.jl")
 
 """
     contact_process_gillespie(g, Xi, β; kwargs)

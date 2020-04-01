@@ -7,8 +7,8 @@ using ProgressMeter
 #using DiffEqOperators
 using Statistics
 
-include("randutils.jl")
-include("utils.jl")
+include("utils\\randutils.jl")
+include("utils\\utils.jl")
 
 struct Metapopulation{T<:AbstractSimpleGraph}
     g::T

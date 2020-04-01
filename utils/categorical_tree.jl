@@ -10,6 +10,7 @@ import Base.sum
 # This allows for O(1) read, O(log n) write and O(log n) generation of a random index
 # Optimized for categorical distributions with a large number of possible outcomes
 
+# Should this be a subtype of AbstractVector?
 struct CategoricalTree{T<:Real}
     ns::Vector{<:Integer} # number of nodes at each layer of the tree (`ns[end]` should be 1, i.e. the root of the tree
     as::Vector{Vector{T}} # store each layer into a separate array. Each parent node contains the sum of its children
