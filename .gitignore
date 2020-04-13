@@ -1,4 +1,4 @@
-mpi_test.jl
 *.png
 *.pdf
 *.eps
+images/*
