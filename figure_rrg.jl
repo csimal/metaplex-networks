@@ -7,11 +7,29 @@ using ColorSchemes
 
 CorrectedMetapopulation(χ::Real, mp::Metapopulation{SI}) = Metapopulation(mp.h, mp.D, SI(χ*mp.dynamics.β))
 
+function rewire_network(g::SimpleGraph, p)
+    h = SimpleGraph(nv(g))
+    for (u,v) in edges(g)
+        if rand() < p
+            if rand() < 0.5
+                w = rand(setdiff(1:nv(g), [u]))
+                if has_edge(g, u, w)
+                    
+            else
+                w = rand(setdiff(1:nv(g), [v]))
+        else
+            add_edge!(h, u, v)
+        end
+    end
+    return h
+end
+
 N = 1000
 M = 10
 
 h = complete_graph(M)
 g = watts_strogatz(N, 100, 0.0)
+g = random_regular_graph(N, 100)
 
 k = degree(g)
 

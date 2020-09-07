@@ -11,7 +11,7 @@ CorrectedMetapopulation(χ::Real, mp::Metapopulation{SIS}) = Metapopulation(mp.h
 CorrectedMetapopulation(χ::Real, mp::Metapopulation{SIR}) = Metapopulation(mp.h, mp.D, SIR(χ*mp.dynamics.β, mp.dynamics.δ))
 
 
-N = 100
+N = 1000
 M = 10
 
 h = complete_graph(M)
@@ -33,36 +33,37 @@ k = degree(g)
 
 
 β = 0.1
+γ = 0.2
 D = 0.1
 
-mp = Metapopulation(h, D, SI(β))
+mp = Metapopulation(h, D, SIR(β,γ))
 mp_1 = CorrectedMetapopulation(χ₁, mp)
 mp_2 = CorrectedMetapopulation(χ₂, mp)
 mp_3 = CorrectedMetapopulation(χ₃, mp)
 mp_4 = CorrectedMetapopulation(χ₄, mp)
 
-mpx = Metaplex(g, h, D, SI(β))
+mpx = Metaplex(g, h, D, SIR(β,γ))
 
 
 x0_i = fill(1, N)
 x0_i[1:10] .= 2
 x0_μ = [div(i-1,div(N,M))+1 for i in 1:N]
 
-x0_mp = Array{Int,2}(undef, M,2)
-x0_mp[2:M,:] .= [100 0]
-x0_mp[1, :] .= [90, 10]
+x0_mp = Array{Int,2}(undef, M,3)
+x0_mp[2:M,:] .= [100 0 0]
+x0_mp[1, :] .= [90, 10, 0]
 
 x0_i = fill(1, N)
 x0_i[1:10] .= 2
 x0_μ = rand(1:M, N)
-x0_mp = zeros(Int, M, 2)
+x0_mp = zeros(Int, M, 3)
 for i in 1:N
     x0_mp[x0_μ[i], x0_i[i]] += 1
 end
 
 x0_mp
 
-tmax = 500.0
+tmax = 50.0
 nmax = 1000000
 nsims = 200
 nbins = 200
@@ -95,6 +96,7 @@ plot(ts_av, sum(u_av[2], dims=2)/N,
     ylabel="Fraction of infected individuals",
     linestyle=:dash,
     legend=:bottomright,
+    fontfamily="Deja Vu",
     color = colors[1]
     )
     plot!(ts_av_mpx, sum(u_av_mpx[2], dims=2)/N,
@@ -122,8 +124,7 @@ plot(ts_av, sum(u_av[2], dims=2)/N,
     linestyle=:dash,
     color = colors[6]
     )
-
-plot!(ts_mf, sum(u_mf[2], dims=2)/N,
+    plot!(ts_mf, sum(u_mf[2], dims=2)/N,
     #label="Meanfield (No correction)",
     label = "",
 #    xlabel="Time",
