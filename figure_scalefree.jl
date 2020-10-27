@@ -3,16 +3,16 @@ using LightGraphs
 using Statistics
 using Plots
 using ColorSchemes
-
+using Random
 
 CorrectedMetapopulation(χ::Real, mp::Metapopulation{SI}) = Metapopulation(mp.h, mp.D, SI(χ*mp.dynamics.β))
-
 CorrectedMetapopulation(χ::Real, mp::Metapopulation{SIS}) = Metapopulation(mp.h, mp.D, SIS(χ*mp.dynamics.β, mp.dynamics.γ))
-
 CorrectedMetapopulation(χ::Real, mp::Metapopulation{SIR}) = Metapopulation(mp.h, mp.D, SIR(χ*mp.dynamics.β, mp.dynamics.δ))
 
 N = 1000
 M = 10
+
+Random.seed!(2020) # for reproducibility
 
 h = erdos_renyi(M, 0.3)
 g = static_scale_free(N, Int(20*N), 2)
@@ -56,7 +56,7 @@ end
 
 tmax = 60.0
 nmax = 100000
-nsims = 200
+nsims = 1000
 nbins = 200
 
 ts, output = gillespie(mp, x0_mp, tmax=tmax, nmax=nmax)
@@ -65,59 +65,31 @@ ts_mpx, output_mpx = gillespie(mpx, [x0_i,x0_μ], tmax=tmax, nmax=nmax)
 plot(ts, output[2], label="")
 plot(ts_mpx, output_mpx[2], label="")
 
-ts_av, u_av = average(mp, x0_mp, tmax=tmax, nmax=nmax, nbins=nbins, nsims=nsims)
-ts_av_1, u_av_1 = average(mp_1, x0_mp, tmax=tmax, nmax=nmax, nbins=nbins, nsims=nsims)
-ts_av_2, u_av_2 = average(mp_2, x0_mp, tmax=tmax, nmax=nmax, nbins=nbins, nsims=nsims)
-ts_av_3, u_av_3 = average(mp_3, x0_mp, tmax=tmax, nmax=nmax, nbins=nbins, nsims=nsims)
-ts_av_4, u_av_4 = average(mp_4, x0_mp, tmax=tmax, nmax=nmax, nbins=nbins, nsims=nsims)
+Random.seed!(2020)
+
+#ts_av, u_av = average(mp, x0_mp, tmax=tmax, nmax=nmax, nbins=nbins, nsims=nsims)
 ts_av_mpx, u_av_mpx = average(mpx, [x0_i,x0_μ], tmax=tmax, nmax=nmax, nbins=nbins, nsims=nsims)
 
 ts_mf, u_mf = meanfield(mp, x0_mp, tmax=tmax, saveat=ts_av)
-ts_mf_1, u_mf_1 = meanfield(mp_1, x0_mp, tmax=tmax, saveat=ts_av_1)
-ts_mf_2, u_mf_2 = meanfield(mp_2, x0_mp, tmax=tmax, saveat=ts_av_2)
-ts_mf_3, u_mf_3 = meanfield(mp_3, x0_mp, tmax=tmax, saveat=ts_av_3)
-ts_mf_4, u_mf_4 = meanfield(mp_4, x0_mp, tmax=tmax, saveat=ts_av_4)
+ts_mf_1, u_mf_1 = meanfield(mp_1, x0_mp, tmax=tmax, saveat=ts_av_mpx)
+ts_mf_2, u_mf_2 = meanfield(mp_2, x0_mp, tmax=tmax, saveat=ts_av_mpx)
+ts_mf_3, u_mf_3 = meanfield(mp_3, x0_mp, tmax=tmax, saveat=ts_av_mpx)
+ts_mf_4, u_mf_4 = meanfield(mp_4, x0_mp, tmax=tmax, saveat=ts_av_mpx)
 ts_mf_mpx, u_mf_mpx = meanfield(mpx, [x0_i,x0_μ], tmax=tmax, saveat=ts_av_mpx)
 
 colors = ColorSchemes.tab10;
 
-plot(ts_av, sum(u_av[2], dims=2)/N + sum(u_av[3], dims=2)/N,
-    label="Metapopulation",
+plot(ts_av_mpx, sum(u_av_mpx[2], dims=2)/N + sum(u_av_mpx[3], dims=2)/N,
+    label="Metaplex",
     xlabel="Time",
     ylabel="Fraction of infected individuals",
     linestyle=:dash,
     legend=:bottomright,
-    color = colors[1]
-    )
-    plot!(ts_av_mpx, sum(u_av_mpx[2], dims=2)/N + sum(u_av_mpx[3], dims=2)/N,
-    label="Metaplex",
-    linestyle=:dash,
     color = colors[2]
     )
-    plot!(ts_av_1, sum(u_av_1[2], dims=2)/N + sum(u_av_1[3], dims=2)/N,
-    label="Closeness Centrality",
-    linestyle=:dash,
-    color = colors[3]
-    )
-    plot!(ts_av_2, sum(u_av_2[2], dims=2)/N + sum(u_av_2[3], dims=2)/N,
-    label="Second Moment",
-    linestyle=:dash,
-    color = colors[4]
-    )
-    plot!(ts_av_3, sum(u_av_3[2], dims=2)/N + sum(u_av_3[3], dims=2)/N,
-    label="Mean Degree",
-    linestyle=:dash,
-    color = colors[5]
-    )
-    plot!(ts_av_4, sum(u_av_4[2], dims=2)/N + sum(u_av_4[3], dims=2)/N,
-    label="Clustering Coefficient",
-    linestyle=:dash,
-    color = colors[6]
-    )
-
-plot!(ts_mf, sum(u_mf[2], dims=2)/N + sum(u_mf[3], dims=2)/N,
+    plot!(ts_mf, sum(u_mf[2], dims=2)/N + sum(u_mf[3], dims=2)/N,
     #label="Meanfield (No correction)",
-    label = "",
+    label = "Metapopulation",
 #    xlabel="Time",
 #    ylabel="Fraction of infected individuals",
     #legend=:bottomright,
@@ -125,27 +97,27 @@ plot!(ts_mf, sum(u_mf[2], dims=2)/N + sum(u_mf[3], dims=2)/N,
     )
     plot!(ts_mf_mpx, sum(u_mf_mpx[2], dims=2)/N + sum(u_mf_mpx[3], dims=2)/N,
 #    label="Meanfield (Metaplex)",
-    label = "",
+    label = "Metaplex IBMF",
     color = colors[2]
     )
     plot!(ts_mf_1, sum(u_mf_1[2], dims=2)/N + sum(u_mf_1[3], dims=2)/N,
 #    label="Meanfield (Closeness Centrality)",
-    label = "",
+    label = "Closeness",
     color = colors[3]
     )
     plot!(ts_mf_2, sum(u_mf_2[2], dims=2)/N + sum(u_mf_2[3], dims=2)/N,
 #    label="Meanfield (Second Moment)",
-    label = "",
+    label = "Second Moment",
     color = colors[4]
     )
     plot!(ts_mf_3, sum(u_mf_3[2], dims=2)/N + sum(u_mf_3[3], dims=2)/N,
 #    label="Meanfield (Mean degree)",
-    label = "",
+    label = "Mean degree",
     color = colors[5]
     )
     plot!(ts_mf_4, sum(u_mf_4[2], dims=2)/N + sum(u_mf_4[3], dims=2)/N,
 #    label="Meanfield (Clustering Coefficient)",
-    label = "",
+    label = "Clustering",
     color = colors[6]
     )
 
@@ -156,15 +128,11 @@ using MATLAB;
 
 mat"""
 figure
+title('SI')
 xlabel('Time')
 ylabel('Fraction of Infected Individuals')
 hold on
-plot($ts_av, $(sum(u_av[2], dims=2)/N + sum(u_av[3], dims=2)/N), 'LineStyle', '--', 'Color', $(cols[1]))
 plot($ts_av_mpx, $(sum(u_av_mpx[2], dims=2)/N + sum(u_av_mpx[3], dims=2)/N), 'LineStyle', '--', 'Color', $(cols[2]))
-plot($ts_av_1, $(sum(u_av_1[2], dims=2)/N + sum(u_av_1[3], dims=2)/N), 'LineStyle', '--', 'Color', $(cols[3]))
-plot($ts_av_2, $(sum(u_av_2[2], dims=2)/N + sum(u_av_2[3], dims=2)/N), 'LineStyle', '--', 'Color', $(cols[4]))
-plot($ts_av_3, $(sum(u_av_3[2], dims=2)/N + sum(u_av_3[3], dims=2)/N), 'LineStyle', '--', 'Color', $(cols[5]))
-plot($ts_av_4, $(sum(u_av_4[2], dims=2)/N + sum(u_av_4[3], dims=2)/N), 'LineStyle', '--', 'Color', $(cols[6]))
 
 plot($ts_mf, $(sum(u_mf[2], dims=2)/N + sum(u_mf[3], dims=2)/N), 'Color', $(cols[1]))
 plot($ts_mf_mpx, $(sum(u_mf_mpx[2], dims=2)/N + sum(u_mf_mpx[3], dims=2)/N), 'Color', $(cols[2]))
@@ -173,5 +141,6 @@ plot($ts_mf_2, $(sum(u_mf_2[2], dims=2)/N + sum(u_mf_2[3], dims=2)/N), 'Color', 
 plot($ts_mf_3, $(sum(u_mf_3[2], dims=2)/N + sum(u_mf_3[3], dims=2)/N), 'Color', $(cols[5]))
 plot($ts_mf_4, $(sum(u_mf_4[2], dims=2)/N + sum(u_mf_4[3], dims=2)/N), 'Color', $(cols[6]))
 hold off
-legend('Metapopulation', 'Metaplex', 'Closeness Centrality', 'Second Moment', 'Mean Degree', 'Clustering Coefficient')
+ylim([0.0,1.0])
+legend({'Metaplex','Metapopulation', 'Metaplex IBMF', 'Closeness Centrality', '\$\\langle k^2\\rangle / \\langle k \\rangle\$', '\$\\langle k \\rangle \$', 'Clustering Coefficient'}, 'Interpreter', 'latex', 'Location', 'southeast')
 """;

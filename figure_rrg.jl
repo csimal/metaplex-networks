@@ -4,7 +4,7 @@ using Statistics
 using Plots
 using ColorSchemes
 using LaTeXStrings
-
+using Random
 
 CorrectedMetapopulation(χ::Real, mp::Metapopulation{SI}) = Metapopulation(mp.h, mp.D, SI(χ*mp.dynamics.β))
 
@@ -33,11 +33,13 @@ function rewire_network(g::SimpleGraph, p)
 end
 
 ##
+Random.seed!(2020)
+
 N = 1000
 M = 10
 
 h = complete_graph(M)
-g = watts_strogatz(N, 100, 0.0)
+#g = watts_strogatz(N, 100, 0.0)
 g = random_regular_graph(N, 50)
 
 k = degree(g)
@@ -60,7 +62,7 @@ for i in 1:N
     x0_mp[x0_μ[i], x0_i[i]] += 1
 end
 
-tmax = 20.0
+tmax = 30.0
 nmax = 10000
 nsims = 1000
 nbins = 200
@@ -75,20 +77,23 @@ plot(ts_mpx, output_mpx[2], label="")
 ts = LinRange(0.0, tmax, nbins)
 ps = LinRange(0.0, 1.0, 5)
 
+Random.seed!(2020)
+
 ts_av_mpx, u_av_mpx = average(mpx, [x0_i,x0_μ], tmax=tmax, nbins=nbins,nsims=nsims,nmax=nmax)
 
 ts_mf_mp, u_mf_mp = meanfield(mp, x0_mp, tmax=tmax, saveat=ts)
 ts_mf_mpc, u_mf_mpc = meanfield(mpc, x0_mp, tmax=tmax, saveat=ts)
 
-u_mf_mpx = Vector{Array{Float64,2}}(undef, length(ps))
-d_stds = Vector(undef, length(ps))
-for i in 1:length(ps)
+u_mf_mpx = zeros(length(ps), length(ts))
+d_stds = Array{Float64,2}(undef, length(ps), 100)
+for i in 1:length(ps), j in 1:100
     f = rewire_network(g, ps[i])
-    d_stds[i] = std(degree(f))
+    d_stds[i,j] = std(degree(f))
     local mpx = Metaplex(f, h, D, SI(β))
     t, u = meanfield(mpx, [x0_i,x0_μ], tmax=tmax, saveat=ts)
-    u_mf_mpx[i] = u[2]
+    u_mf_mpx[i,:] += sum(u[2], dims=2)
 end
+u_mf_mpx /= 100
 
 
 colors = ColorSchemes.GnBu_9;
@@ -99,34 +104,28 @@ plot(ts, sum(u_mf_mpc[2], dims=2)/N,
     label = "Mean degree correction",
     xlabel="Time",
     ylabel="Fraction of infected individuals",
-    fontfamily="Deja Vu Sans",
     legend=:bottomright,
     color = orange
     )
-    plot!(ts, sum(u_mf_mpx[1], dims=2)/N,
+    plot!(ts, u_mf_mpx[1,:]/N,
     label = "p=0.0",
     color = colors[5]
     )
-    plot!(ts, sum(u_mf_mpx[2], dims=2)/N,
+    plot!(ts, u_mf_mpx[2,:]/N,
     label = "p=0.25",
     color = colors[6]
     )
-    plot!(ts, sum(u_mf_mpx[3], dims=2)/N,
+    plot!(ts, u_mf_mpx[3,:]/N,
     label = "p=0.5",
     color = colors[7]
     )
-    plot!(ts, sum(u_mf_mpx[4], dims=2)/N,
+    plot!(ts, u_mf_mpx[4,:]/N,
     label = "p=0.75",
     color = colors[8]
     )
-    plot!(ts, sum(u_mf_mpx[5], dims=2)/N,
+    plot!(ts, u_mf_mpx[5,:]/N,
     label = "p=1.0",
     color = colors[9]
-    )
-    plot!(ts_av_mpx, sum(u_av_mpx[2], dims=2)/N,
-    label="Metaplex",
-    color=orange,
-    linestyle=:dash
     )
     plot!(ts, sum(u_mf_mpc[2], dims=2)/N,
     label="",
@@ -136,7 +135,7 @@ plot(ts, sum(u_mf_mpc[2], dims=2)/N,
 # necessary for consistent LaTeX
 pyplot()
 
-plot(ps, d_stds.^2,
+plot(ps, mean(d_stds, dims=2).^2,
     label="",
     xlabel="p",
     ylabel=L"\sigma^2")
@@ -148,17 +147,17 @@ or = [orange.r, orange.g, orange.b]
 using MATLAB
 
 
-eval_string("""
+mat"
 figure
 xlabel('Time')
 ylabel('Fraction of Infected Individuals')
 hold on
 plot($ts, $(sum(u_mf_mpc[2], dims=2)/N), 'Color', $(or))
-plot($ts, $(sum(u_mf_mpx[1], dims=2)/N), 'Color', $(cols[5]))
-plot($ts, $(sum(u_mf_mpx[2], dims=2)/N), 'Color', $(cols[6]))
-plot($ts, $(sum(u_mf_mpx[3], dims=2)/N), 'Color', $(cols[7]))
-plot($ts, $(sum(u_mf_mpx[4], dims=2)/N), 'Color', $(cols[8]))
-plot($ts, $(sum(u_mf_mpx[5], dims=2)/N), 'Color', $(cols[9]))
+plot($ts, $(u_mf_mpx[1,:]/N), 'Color', $(cols[5]))
+plot($ts, $(u_mf_mpx[2,:]/N), 'Color', $(cols[6]))
+plot($ts, $(u_mf_mpx[3,:]/N), 'Color', $(cols[7]))
+plot($ts, $(u_mf_mpx[4,:]/N), 'Color', $(cols[8]))
+plot($ts, $(u_mf_mpx[5,:]/N), 'Color', $(cols[9]))
 hold off
-legend('Mean degree correction', 'p=0.0', 'p=0.1', 'p=0.2', 'p=0.3', 'p=0.4')
-""");
+legend({'Mean degree correction', 'p=0.0', 'p=0.25', 'p=0.5', 'p=0.75', 'p=1.0'}, 'Location','southeast')
+"
