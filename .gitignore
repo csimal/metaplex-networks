@@ -4,3 +4,4 @@
 *.fig
 images/*
 figures/*
+.ipynb_checkpoints/*
