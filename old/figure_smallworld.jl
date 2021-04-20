@@ -3,7 +3,9 @@ using LightGraphs
 using Statistics
 using Plots
 using ColorSchemes
+using Random
 
+Random.seed!(2021)
 
 CorrectedMetapopulation(χ::Real, mp::Metapopulation{SI}) = Metapopulation(mp.h, mp.D, SI(χ*mp.dynamics.β))
 
@@ -42,7 +44,7 @@ nbins = 200
 ts_mp, output_mp = gillespie(mp, x0_mp, tmax=tmax, nmax=nmax)
 ts_mpx, output_mpx = gillespie(mpx, [x0_i,x0_μ], tmax=tmax, nmax=nmax)
 
-plot(ts, output[2], label="")
+plot(ts_mp, output_mp[2], label="")
 plot(ts_mpx, output_mpx[2], label="")
 
 ts = LinRange(0.0, tmax, nbins)
@@ -51,13 +53,14 @@ ps = LinRange(0.0, 0.4, 5)
 ts_mf_mp, u_mf_mp = meanfield(mp, x0_mp, tmax=tmax, saveat=ts)
 ts_mf_mpc, u_mf_mpc = meanfield(mpc, x0_mp, tmax=tmax, saveat=ts)
 
-u_mf_mpx = Vector{Array{Float64,2}}(undef, length(ps))
-for i in 1:length(ps)
+u_mf_mpx = zeros(length(ps), length(ts))
+for i in 1:length(ps), j in 1:100
     g = watts_strogatz(N, 100, ps[i])
     mpx = Metaplex(g, h, D, SI(β))
     t, u = meanfield(mpx, [x0_i,x0_μ], tmax=tmax, saveat=ts)
-    u_mf_mpx[i] = u[2]
+    u_mf_mpx[i,:] += sum(u[2], dims=2)
 end
+u_mf_mpx /= 100
 
 
 colors = ColorSchemes.GnBu_9;
@@ -72,23 +75,23 @@ plot(ts, sum(u_mf_mpc[2], dims=2)/N,
     legend=:bottomright,
     color = orange
     )
-    plot!(ts, sum(u_mf_mpx[1], dims=2)/N,
+    plot!(ts, u_mf_mpx[1,:]/N,
     label = "p=0.0",
     color = colors[5]
     )
-    plot!(ts, sum(u_mf_mpx[2], dims=2)/N,
+    plot!(ts, u_mf_mpx[2,:]/N,
     label = "p=0.1",
     color = colors[6]
     )
-    plot!(ts, sum(u_mf_mpx[3], dims=2)/N,
+    plot!(ts, u_mf_mpx[3,:]/N,
     label = "p=0.2",
     color = colors[7]
     )
-    plot!(ts, sum(u_mf_mpx[4], dims=2)/N,
+    plot!(ts, u_mf_mpx[4,:]/N,
     label = "p=0.3",
     color = colors[8]
     )
-    plot!(ts, sum(u_mf_mpx[5], dims=2)/N,
+    plot!(ts, u_mf_mpx[5,:]/N,
     label = "p=0.4",
     color = colors[9]
     )
@@ -98,8 +101,38 @@ plot(ts, sum(u_mf_mpc[2], dims=2)/N,
     )
 
 
+plot(ts, (sum(u_mf_mpc[2], dims=2) - u_mf_mpx[1,:])/N,
+    xlabel="Time",
+    ylabel="Residual",
+    label = "p=0.0",
+    color = colors[5]
+    )
+    plot!(ts, (sum(u_mf_mpc[2], dims=2) - u_mf_mpx[2,:])/N,
+    label = "p=0.1",
+    color = colors[6]
+    )
+    plot!(ts, (sum(u_mf_mpc[2], dims=2) - u_mf_mpx[3,:])/N,
+    label = "p=0.2",
+    color = colors[7]
+    )
+    plot!(ts, (sum(u_mf_mpc[2], dims=2) - u_mf_mpx[4,:])/N,
+    label = "p=0.3",
+    color = colors[8]
+    )
+    plot!(ts, (sum(u_mf_mpc[2], dims=2) - u_mf_mpx[5,:])/N,
+    label = "p=0.4",
+    color = colors[9]
+    )
+
 cols = map(x->[x.r, x.g, x.b], colors.colors)
 or = [orange.r, orange.g, orange.b]
+
+using DelimitedFiles
+
+writedlm("umpc.dat", sum(u_mf_mpc[2], dims=2)/N)
+writedlm("umpx.dat", u_mf_mpx/N)
+writedlm("ts.dat", ts)
+writedlm("colors.dat", [cols..., or])
 
 using MATLAB;
 
