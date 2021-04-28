@@ -70,7 +70,7 @@ Random.seed!(2020)
 #ts_av, u_av = average(mp, x0_mp, tmax=tmax, nmax=nmax, nbins=nbins, nsims=nsims)
 ts_av_mpx, u_av_mpx = average(mpx, [x0_i,x0_μ], tmax=tmax, nmax=nmax, nbins=nbins, nsims=nsims)
 
-ts_mf, u_mf = meanfield(mp, x0_mp, tmax=tmax, saveat=ts_av)
+ts_mf, u_mf = meanfield(mp, x0_mp, tmax=tmax, saveat=ts_av_mpx)
 ts_mf_1, u_mf_1 = meanfield(mp_1, x0_mp, tmax=tmax, saveat=ts_av_mpx)
 ts_mf_2, u_mf_2 = meanfield(mp_2, x0_mp, tmax=tmax, saveat=ts_av_mpx)
 ts_mf_3, u_mf_3 = meanfield(mp_3, x0_mp, tmax=tmax, saveat=ts_av_mpx)
