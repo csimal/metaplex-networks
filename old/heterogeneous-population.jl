@@ -14,6 +14,7 @@ end
 begin
 	using NetworkEpidemics
 	using LightGraphs
+	using OrdinaryDiffEq
 	using Plots
 	using Random
 	using Statistics
@@ -23,19 +24,19 @@ end
 
 # ╔═╡ 34b6b36a-0795-453d-941e-65d18ba1c837
 begin
-	cd("F:\\Dev\\metaplex-networks/old")
+	#cd("F:\\Dev\\metaplex-networks/old")
 	include("networks/empirical_networks.jl")
+	include("linearized.jl")
 end
-
-# ╔═╡ f51d66a4-2184-42c4-9a75-77f91bda6927
-Random.seed!(2021)
 
 # ╔═╡ 2aaf973e-7ad5-4326-8e77-dc6f2b43fae7
 begin
+	Random.seed!(2021)
 	#h = contiguous_usa()
 	#h = london_transport()
 	h = barabasi_albert(100, 5)
 	#h = erdos_renyi(500, 20/500)
+	pref = "BA"
 end
 
 # ╔═╡ 42bf98dc-c1fa-4b7c-86b0-12bcbc3e0158
@@ -96,19 +97,23 @@ heatmap(abs.(eig.vectors'))
 
 # ╔═╡ 84a578f2-75dd-46c7-9036-f7e0e7b2154d
 begin
-	heatmap(abs.(V'),
+	local p =heatmap(abs.(V'),
 		xlabel="Node, ordered by degree",
-		ylabel="Eigenmode, ordered by eigenvalue",
+		ylabel="Eigenvector, ordered by eigenvalue",
 		#color=cgrad(:balance)
 	)
-	#savefig("london-degree-eigenmode.pdf")
+	savefig("$(pref)-degree-eigenmode.png")
+	p
 end
+
+# ╔═╡ f3b8f8d8-11db-4ff1-a05b-873c05bd8670
+pertnode = 5
 
 # ╔═╡ c21d0ea3-5317-4eab-a437-99a172caf799
 begin
-	ks = fill(500, M)
+	ks = fill(300, M)
 	ks_ = copy(ks)
-	ks_[1] = 1000
+	ks_[pertnode] = 1000
 end
 
 # ╔═╡ 18ff5b7f-978a-4fa7-a872-a34f8d412854
@@ -140,7 +145,7 @@ end
 
 # ╔═╡ 46776763-aca3-4e42-841a-3d891fd4566a
 begin
-	tmax = 200.0
+	tmax = 20.0
 	nmax = 1000000
 	nsims = 100
 	nbins = 200
@@ -148,9 +153,9 @@ end
 
 # ╔═╡ b5b79925-0f7a-421b-83c7-1d9fa9368c0e
 begin
-	β = 0.105
-	γ = 0.5
-	D = 0.5
+	β = 1.0
+	γ = 1.05
+	D = 0.8
 
 	critical_k = (N / M) * γ / β
 end
@@ -200,12 +205,12 @@ end
 
 # ╔═╡ 7b04f046-cd8f-45ad-b079-c33c7f5f166c
 begin
-	v = eig.vectors[:,eigenmode[1]]
+	v = eig.vectors[:,eigenmode[pertnode]]
 	w = u_mf_mp_[2][end,:]
 	scatter(abs.(v), 
-		label="Eigenmode",
+		label="Eigenvector",
 	)
-	scatter!(w/norm(w), label="Final pattern")
+	scatter!(w/maximum(w), label="Final pattern")
 end
 
 # ╔═╡ 2dc743d3-31a9-4a04-a9f5-270a62ace4ea
@@ -214,19 +219,92 @@ cor(abs.(v), w)
 # ╔═╡ 2dcdde5b-e6f1-4f8a-9436-7753bbb3bebe
 begin
 	scatter(abs.(v), w,
-		xscale=:log10,
-		yscale=:log10,
+		xscale = :log10,
+		yscale = :log10,
 		label="")
 end
 
 # ╔═╡ d45f928e-0683-4e96-b0b8-85932236f1fe
 heatmap(inv(eig.vectors) * Diagonal(ks_) * eig.vectors)
 
+# ╔═╡ 04060122-3e37-43ae-93b9-793a51eab984
+idx = 90
+
+# ╔═╡ 70e91e1b-c9be-428c-b544-cc0584360624
+degree(h,idx)
+
+# ╔═╡ accc0563-76bb-4d9b-81b5-c1091367dc9e
+begin
+	local tmax = 25.0
+	lin = linearized_system(mp)
+	#lin_ = linearized_system(mp_)
+	bamb = bamboozle(mp, idx) 
+	prob = ODEProblem(lin, x0[:,2]/N, (0.0,tmax))
+	#prob_ = ODEProblem(lin_, x0[:,2]/N, (0.0,tmax))
+	prob_b = ODEProblem(bamb, x0[:,2]/N, (0.0,25.0))
+	sol = solve(prob, Tsit5())
+	#sol_ = solve(prob_, Tsit5())
+	sol_b = solve(prob_b, Rodas5())
+	nothing
+end
+
+# ╔═╡ 7733fa0b-dc5b-4b85-a281-dfc7d363c718
+f(t, u...) = (t, sum(u)/M)
+
+# ╔═╡ b8ecb346-2237-439c-a6a0-843edb786f54
+begin
+	local p = plot(sol, vars=(f,0:M...), 
+		label="",
+		xlabel="Time",
+		ylabel = "Fraction of infected population",
+		title="Unperturbed system"
+	)
+	savefig("$(pref)_unperturbed.png")
+	p
+end
+
+# ╔═╡ c444c1c4-8379-4fea-9b50-696eede95309
+begin
+	local p = plot(sol_b, vars=(f,0:M...), 
+		label="",
+		xlabel="Time",
+		ylabel="Fraction of infected population",
+		title="Perturbed system (k = $(degree(h,idx)))"
+	)
+	savefig("$(pref)_perturbed_$(idx)_d$(degree(h,idx)).png")
+	p
+end
+
+# ╔═╡ f53f239e-5d66-43d5-9d56-8a7dd270e6d7
+begin
+	plot(sol_b, label="")
+	plot!(sol_b, vars=(0,idx), label="Perturbed Node", color=:red)
+end
+
+# ╔═╡ 20283649-51eb-40b7-9880-800142f9bdf3
+begin
+	local v = abs.(eig.vectors[:,eigenmode[idx]])
+	local u = sol_b.u[end]
+	local w = abs.(u .- mean(u))
+	local neibs = neighbors(h, idx)
+	local p = scatter(u, v, label="", 
+		xlabel="Final Pattern", 
+		ylabel="Eigenvector", 
+		legend=:bottomright,
+		#xscale = :log10,
+		#yscale = :log10,
+	)
+	scatter!(p, [u[idx]], [v[idx]], label="")
+	scatter!(p, u[neibs], v[neibs], label="")
+	#plot!(identity, [0.0,maximum(u)], linestyle=:dash, color=:grey, label="")
+	savefig("$(pref)_mode_pattern_$(idx).png")
+	p
+end
+
 # ╔═╡ Cell order:
 # ╠═3dd8b742-5d92-493c-a8b4-1240eda1323a
 # ╠═6b329c80-f68e-11eb-3b74-37bbf987d96e
 # ╠═34b6b36a-0795-453d-941e-65d18ba1c837
-# ╠═f51d66a4-2184-42c4-9a75-77f91bda6927
 # ╠═2aaf973e-7ad5-4326-8e77-dc6f2b43fae7
 # ╠═77be188c-8ada-4bf7-97ea-f5f7f5fbb1ca
 # ╠═42bf98dc-c1fa-4b7c-86b0-12bcbc3e0158
@@ -239,6 +317,7 @@ heatmap(inv(eig.vectors) * Diagonal(ks_) * eig.vectors)
 # ╠═f680da2d-bd4b-4969-933a-22f5c8ab76e4
 # ╠═fd60a8ea-33a7-49f4-9968-d64fbbaafc7e
 # ╠═84a578f2-75dd-46c7-9036-f7e0e7b2154d
+# ╠═f3b8f8d8-11db-4ff1-a05b-873c05bd8670
 # ╠═c21d0ea3-5317-4eab-a437-99a172caf799
 # ╠═5d5b052e-6c60-4e67-bb40-9db51ce1a9c5
 # ╠═18ff5b7f-978a-4fa7-a872-a34f8d412854
@@ -254,3 +333,11 @@ heatmap(inv(eig.vectors) * Diagonal(ks_) * eig.vectors)
 # ╠═2dc743d3-31a9-4a04-a9f5-270a62ace4ea
 # ╠═2dcdde5b-e6f1-4f8a-9436-7753bbb3bebe
 # ╠═d45f928e-0683-4e96-b0b8-85932236f1fe
+# ╠═04060122-3e37-43ae-93b9-793a51eab984
+# ╠═70e91e1b-c9be-428c-b544-cc0584360624
+# ╠═accc0563-76bb-4d9b-81b5-c1091367dc9e
+# ╠═7733fa0b-dc5b-4b85-a281-dfc7d363c718
+# ╠═b8ecb346-2237-439c-a6a0-843edb786f54
+# ╠═c444c1c4-8379-4fea-9b50-696eede95309
+# ╠═f53f239e-5d66-43d5-9d56-8a7dd270e6d7
+# ╠═20283649-51eb-40b7-9880-800142f9bdf3

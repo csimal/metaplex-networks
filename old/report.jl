@@ -4,7 +4,7 @@ using Plots
 using ColorSchemes
 
 N = 1000
-M = 10
+M = 1
 β = 0.05
 γ = 0.5
 
