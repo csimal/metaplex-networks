@@ -27,7 +27,7 @@ function bamboozle(mp::HeterogeneousMetapopulation{SIS}, i)
     βs[i] = -γ + eig.values[i] + 5
     f! = function(du, u, p, t)
         mul!(du, L, u, -D[2], 0.0)
-        @. du += βs * u * (1 - u) - (γ*u)
+        @. du += p[1] * u * (1 - u) - (p[2]*u)
     end
-    return f!
+    return f!, (βs, γ)
 end

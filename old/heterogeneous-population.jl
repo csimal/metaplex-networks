@@ -100,6 +100,7 @@ begin
 	local p =heatmap(abs.(V'),
 		xlabel="Node, ordered by degree",
 		ylabel="Eigenvector, ordered by eigenvalue",
+		title = "$pref",
 		#color=cgrad(:balance)
 	)
 	savefig("$(pref)-degree-eigenmode.png")
@@ -118,20 +119,6 @@ end
 
 # ╔═╡ 18ff5b7f-978a-4fa7-a872-a34f8d412854
 pert = rand(10:60, M)
-
-# ╔═╡ 77be188c-8ada-4bf7-97ea-f5f7f5fbb1ca
-begin
-	using DelimitedFiles
-	open("barabasi-albert-adjmat.dat", "w") do io
-		writedlm(io, Array(adjacency_matrix(h)))
-	end
-	open("inner-degrees.dat", "w") do io
-		writedlm(io, ks)
-	end
-	open("infected.dat", "w") do io
-		writedlm(io, pert)
-	end
-end
 
 # ╔═╡ 4608e36d-75b1-40fb-98de-ab32cb6d12cb
 begin
@@ -228,7 +215,7 @@ end
 heatmap(inv(eig.vectors) * Diagonal(ks_) * eig.vectors)
 
 # ╔═╡ 04060122-3e37-43ae-93b9-793a51eab984
-idx = 90
+idx = 10
 
 # ╔═╡ 70e91e1b-c9be-428c-b544-cc0584360624
 degree(h,idx)
@@ -238,15 +225,18 @@ begin
 	local tmax = 25.0
 	lin = linearized_system(mp)
 	#lin_ = linearized_system(mp_)
-	bamb = bamboozle(mp, idx) 
+	bamb, pars = bamboozle(mp, idx) 
 	prob = ODEProblem(lin, x0[:,2]/N, (0.0,tmax))
 	#prob_ = ODEProblem(lin_, x0[:,2]/N, (0.0,tmax))
-	prob_b = ODEProblem(bamb, x0[:,2]/N, (0.0,25.0))
+	prob_b = ODEProblem(bamb, x0[:,2]/N, (0.0,300.0), pars)
 	sol = solve(prob, Tsit5())
 	#sol_ = solve(prob_, Tsit5())
 	sol_b = solve(prob_b, Rodas5())
 	nothing
 end
+
+# ╔═╡ 18ecc8fb-b404-4c1a-8837-83a7004e86c7
+sol_b
 
 # ╔═╡ 7733fa0b-dc5b-4b85-a281-dfc7d363c718
 f(t, u...) = (t, sum(u)/M)
@@ -257,7 +247,7 @@ begin
 		label="",
 		xlabel="Time",
 		ylabel = "Fraction of infected population",
-		title="Unperturbed system"
+		title="Unperturbed system - $pref"
 	)
 	savefig("$(pref)_unperturbed.png")
 	p
@@ -269,7 +259,7 @@ begin
 		label="",
 		xlabel="Time",
 		ylabel="Fraction of infected population",
-		title="Perturbed system (k = $(degree(h,idx)))"
+		title="Perturbed system - $pref (k = $(degree(h,idx)))"
 	)
 	savefig("$(pref)_perturbed_$(idx)_d$(degree(h,idx)).png")
 	p
@@ -291,13 +281,62 @@ begin
 		xlabel="Final Pattern", 
 		ylabel="Eigenvector", 
 		legend=:bottomright,
+		title = "Final pattern vs. eigenvector ($pref)",
 		#xscale = :log10,
 		#yscale = :log10,
 	)
-	scatter!(p, [u[idx]], [v[idx]], label="")
-	scatter!(p, u[neibs], v[neibs], label="")
+	scatter!(p, [u[idx]], [v[idx]], label="Perturbed Node")
+	scatter!(p, u[neibs], v[neibs], label="Neighbors of perturbed node")
 	#plot!(identity, [0.0,maximum(u)], linestyle=:dash, color=:grey, label="")
 	savefig("$(pref)_mode_pattern_$(idx).png")
+	p
+end
+
+# ╔═╡ a8d92931-fe8e-407b-af3a-86a02261f465
+function final_infection(mp, i, tmax)
+	f, p = bamboozle(mp, i)
+	prob = ODEProblem(f, x0[:,2]/N, (0.0, tmax), p)
+	sol = solve(prob, Rodas5(), saveat=[tmax])
+	return sum(sol.u[end])/M, sol.t[end], sol.retcode
+end
+
+# ╔═╡ 591adfd2-1071-4f1d-8a49-b250d97e153f
+begin
+	us = Vector{Float64}(undef, nv(h))
+	ts = Vector{Float64}(undef, nv(h))
+	rc = Vector{Symbol}(undef, nv(h))
+	for i in 1:nv(h)
+		us[i], ts[i], rc[i] = final_infection(mp, i, 500.0)
+	end
+end
+
+# ╔═╡ 57eb9ba0-29b0-4dda-a95f-edaaef70bcee
+ts
+
+# ╔═╡ 21ed4f58-2860-466b-a588-eed29b2640e8
+rc
+
+# ╔═╡ 68867d4d-caee-4a9a-9db3-cfc6a112efbe
+begin
+	local p = scatter(degree(h), us, 
+		label="",
+		xlabel = "Degree of perturbed node",
+		ylabel = "Final Total Infection",
+		title = "$pref"
+	)
+	savefig("$(pref)_deg_vs_pattern.png")
+	p
+end
+
+# ╔═╡ 70f4ed11-853a-46de-ad26-2b8165f1111b
+begin
+	local p = scatter(closeness_centrality(h), us, 
+		label="",
+		xlabel = "Closeness Centrality",
+		ylabel = "Final Total Infection",
+		title = "$pref"
+	)
+	savefig("$(pref)_closeness_vs_pattern.png")
 	p
 end
 
@@ -306,7 +345,6 @@ end
 # ╠═6b329c80-f68e-11eb-3b74-37bbf987d96e
 # ╠═34b6b36a-0795-453d-941e-65d18ba1c837
 # ╠═2aaf973e-7ad5-4326-8e77-dc6f2b43fae7
-# ╠═77be188c-8ada-4bf7-97ea-f5f7f5fbb1ca
 # ╠═42bf98dc-c1fa-4b7c-86b0-12bcbc3e0158
 # ╠═1c210948-e88e-4b9c-9ea8-6d18a609fe31
 # ╠═c6d532fc-6b83-4526-a9fb-5cbba1862ff2
@@ -336,8 +374,15 @@ end
 # ╠═04060122-3e37-43ae-93b9-793a51eab984
 # ╠═70e91e1b-c9be-428c-b544-cc0584360624
 # ╠═accc0563-76bb-4d9b-81b5-c1091367dc9e
+# ╠═18ecc8fb-b404-4c1a-8837-83a7004e86c7
 # ╠═7733fa0b-dc5b-4b85-a281-dfc7d363c718
 # ╠═b8ecb346-2237-439c-a6a0-843edb786f54
 # ╠═c444c1c4-8379-4fea-9b50-696eede95309
 # ╠═f53f239e-5d66-43d5-9d56-8a7dd270e6d7
 # ╠═20283649-51eb-40b7-9880-800142f9bdf3
+# ╠═a8d92931-fe8e-407b-af3a-86a02261f465
+# ╠═591adfd2-1071-4f1d-8a49-b250d97e153f
+# ╠═57eb9ba0-29b0-4dda-a95f-edaaef70bcee
+# ╠═21ed4f58-2860-466b-a588-eed29b2640e8
+# ╠═68867d4d-caee-4a9a-9db3-cfc6a112efbe
+# ╠═70f4ed11-853a-46de-ad26-2b8165f1111b
