@@ -20,6 +20,7 @@ begin
 	using Statistics
 	using LinearAlgebra
 	using GraphRecipes
+	using LaTeXStrings
 end
 
 # ╔═╡ 34b6b36a-0795-453d-941e-65d18ba1c837
