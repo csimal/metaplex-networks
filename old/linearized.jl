@@ -1,5 +1,5 @@
 using NetworkEpidemics
-using LightGraphs
+using Graphs
 using LinearAlgebra
 
 function linearized_system(mp::HeterogeneousMetapopulation{SIS})
@@ -8,7 +8,7 @@ function linearized_system(mp::HeterogeneousMetapopulation{SIS})
     D = mp.D
     #w = Vector{Float64}(undef, nv(mp.h))
     L = laplacian_matrix(mp.h)
-    eig = eigen(Array(L))
+    #eig = eigen(Array(L))
     βs = β * mp.ks / (mp.N/nv(mp.h))
     f! = function(du,u,p,t)
         mul!(du, L, u, -D[2], 0.0)

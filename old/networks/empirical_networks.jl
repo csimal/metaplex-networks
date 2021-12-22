@@ -1,5 +1,5 @@
 using DelimitedFiles
-using LightGraphs
+using Graphs
 
 
 function contiguous_usa()
