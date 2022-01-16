@@ -60,12 +60,12 @@ end
 
 # ╔═╡ 1c210948-e88e-4b9c-9ea8-6d18a609fe31
 begin
-    p = sortperm(Graphs.degree(h))
+    sorted_nodes = sortperm(Graphs.degree(h))
     #eig = eigen(Array(normalized_laplacian(h)))
 	eig = eigen(Array(laplacian_matrix(h)))
     V = Array{Float64,2}(undef, nv(h), nv(h))
     for i in 1:nv(h)
-        V[:,i] .= eig.vectors[p,i]
+        V[:,i] .= eig.vectors[sorted_nodes,i]
     end
     # for each node, find the eigenvector whose entry for that node is highest in magnitude
     eigenmode = Vector{Int}(undef, nv(h))
@@ -88,7 +88,7 @@ heatmap(abs.(eig.vectors'))
 
 # ╔═╡ 84a578f2-75dd-46c7-9036-f7e0e7b2154d
 begin
-	local p =heatmap(abs.(V'),
+	local p = heatmap(abs.(V'),
 		xlabel="Node, ordered by degree",
 		ylabel="Eigenvector, ordered by eigenvalue",
 		title = "$pref",
@@ -116,15 +116,6 @@ begin
 	nbins = 200
 end
 
-# ╔═╡ b5b79925-0f7a-421b-83c7-1d9fa9368c0e
-begin
-	#β = 1.5
-	#γ = 1.0
-	#D = 1.0
-
-	#critical_k = (N / M) * γ / β
-end
-
 # ╔═╡ ba6076e4-f623-49f0-8f1f-ecfac6daac81
 md"""
 β: $(@bind β Slider(0.0:0.05:2.0; default=1.0, show_value=true))
@@ -144,8 +135,11 @@ end
 md"""
 Dense node: $(@bind idx Slider(1:nv(h), show_value=true))
 
-Uniform seed? $(@bind uniform_seed CheckBox())
+Uniform seed? $(@bind uniform_seed CheckBox(default=true))
 """
+
+# ╔═╡ e6b05fd7-5199-4c8e-8236-20a7fe92b211
+seednode = sorted_nodes[idx] # NB p is the sorting permutation by degree
 
 # ╔═╡ 18ff5b7f-978a-4fa7-a872-a34f8d412854
 begin
@@ -153,7 +147,7 @@ begin
 		seed = rand(10:60, M)
 	else
 		seed = zeros(Int, M)
-		seed[idx] = 50
+		seed[seednode] = 50
 	end
 end
 
@@ -165,10 +159,10 @@ begin
 	x0[1:M,1] .-= seed
 	x0[1:M,2] .= seed
 	#x0[1,:] .= [900, 100]
-end
+end;
 
-# ╔═╡ e6b05fd7-5199-4c8e-8236-20a7fe92b211
-seednode = p[idx] # NB p is the sorting permutation by degree
+# ╔═╡ 7981a920-6766-4f73-a58c-bd3631ac16b1
+seed
 
 # ╔═╡ 70e91e1b-c9be-428c-b544-cc0584360624
 Graphs.degree(h,seednode) 
@@ -205,30 +199,6 @@ end
 # ╔═╡ 7733fa0b-dc5b-4b85-a281-dfc7d363c718
 f(t, u...) = (t, sum(u)/M)
 
-# ╔═╡ b8ecb346-2237-439c-a6a0-843edb786f54
-begin
-	local p = plot(sol, vars=(f,0:M...), 
-		label="",
-		xlabel="Time",
-		ylabel = "Fraction of infected population",
-		title="Unmodified system - $pref"
-	)
-	#savefig("$(pref)_unperturbed.png")
-	p
-end
-
-# ╔═╡ c444c1c4-8379-4fea-9b50-696eede95309
-begin
-	local p = plot(sol_b, vars=(f,0:M...), 
-		label="",
-		xlabel="Time",
-		ylabel="Fraction of infected population",
-		title="Modified system - $pref (k = $(Graphs.degree(h,idx)))"
-	)
-	#savefig("$(pref)_perturbed_$(idx)_d$(degree(h,idx)).png")
-	p
-end
-
 # ╔═╡ f53f239e-5d66-43d5-9d56-8a7dd270e6d7
 begin
 	plot(sol_b, label="")
@@ -264,13 +234,50 @@ function final_infection(mp, i, tmax)
 	return sol
 end
 
+# ╔═╡ fe881b04-e7cb-456c-b0fd-5554c1ef76e4
+begin
+	low_first(k) = sorted_nodes[1:k]
+	high_first(k) = sorted_nodes[(nv(h)-k+1):nv(h)]
+	random(k) = randperm(nv(h))[1:k]
+end
+
+# ╔═╡ 03db73b9-d321-4126-8b78-9c82153f3983
+md"""
+
+Number of dense nodes: $(@bind n_dense Slider(1:nv(h), show_value=true)) $(@bind dense_nodes Select([low_first => "lowest degrees", high_first => "highest degrees", random => "random"]))
+
+Density: $(@bind d Slider(1:10, default=5, show_value=true))
+
+"""
+
+# ╔═╡ 59d2e023-6194-4179-a77d-2b107a613bf5
+begin
+	local tmax = 2000
+	nodes = dense_nodes(n_dense)
+	dens, ps = densify(mp, nodes, d) 
+	prob_d = ODEProblem(dens, x0[:,2]/N, (0.0,tmax), ps)
+	sol_d = solve(prob_d, Rodas5(), callback=TerminateSteadyState())
+	nothing
+end
+
+# ╔═╡ 61016659-b296-4027-b89f-32d7373136dc
+plot(sol_d, label="")
+
+# ╔═╡ 8d3cc058-5766-4be5-9be7-30cc131dfa96
+function final_infection(mp, nodes, ρ, tmax)
+	f, params = densify(mp, nodes, ρ)
+	prob = ODEProblem(f, x0[:,2]/N, (0.0, tmax), params)
+	sol = solve(prob, Rodas5(), callback=TerminateSteadyState())
+	return sol
+end
+
 # ╔═╡ 591adfd2-1071-4f1d-8a49-b250d97e153f
 begin
 	us = Vector{Float64}(undef, nv(h))
 	ts = Vector{Float64}(undef, nv(h))
 	for i in 1:nv(h)
 		fi = final_infection(mp, i, 2000.0)
-		us[i] = sum(fi.u[end])/(N/M)
+		us[i] = sum(fi.u[end])/M
 		ts[i] = fi.t[end]
 	end
 end
@@ -326,6 +333,48 @@ begin
 	p
 end
 
+# ╔═╡ 6df2ca41-cc69-438a-8603-3ab758a4c174
+begin
+	local tmax = 2000
+	us_low = Vector{Float64}(undef, nv(h))
+	ts_low = Vector{Float64}(undef, nv(h))
+	us_high = Vector{Float64}(undef, nv(h))
+	ts_high = Vector{Float64}(undef, nv(h))
+	for i in 1:nv(h)
+		fi_low = final_infection(mp, low_first(i), d, tmax)
+		us_low[i] = sum(fi_low.u[end])/M
+		ts_low[i] = fi_low.t[end]
+		fi_high = final_infection(mp, high_first(i), d, tmax)
+		us_high[i] = sum(fi_high.u[end])/M
+		ts_high[i] = fi_high.t[end]
+	end
+end
+
+# ╔═╡ f7075b5f-1ad7-460c-a47c-a9f6b7092259
+begin
+	local x = (1:nv(h))/nv(h)
+	local p = scatter(x, us_low,
+		label = "Low degrees first",
+		xlabel = "Fraction of dense nodes",
+		ylabel = "Final infection",
+		legend = :bottomright,
+		markersize = 2.5
+	)
+	scatter!(p, x, us_high, label="High degrees first", markersize = 2.5)
+end
+
+# ╔═╡ 940e9684-2c19-4b46-a695-8be9afe420a7
+begin
+	local x = (1:nv(h))/nv(h)
+	local p = scatter(x, ts_low,
+		label = "Low degrees first",
+		xlabel = "Fraction of dense nodes",
+		ylabel = "Time to Final infection",
+		markersize = 2.5
+	)
+	scatter!(p, x, ts_high, label="High degrees first", markersize = 2.5)
+end
+
 # ╔═╡ Cell order:
 # ╠═3dd8b742-5d92-493c-a8b4-1240eda1323a
 # ╠═6b329c80-f68e-11eb-3b74-37bbf987d96e
@@ -343,22 +392,28 @@ end
 # ╠═18ff5b7f-978a-4fa7-a872-a34f8d412854
 # ╠═4608e36d-75b1-40fb-98de-ab32cb6d12cb
 # ╠═46776763-aca3-4e42-841a-3d891fd4566a
-# ╠═b5b79925-0f7a-421b-83c7-1d9fa9368c0e
 # ╟─ba6076e4-f623-49f0-8f1f-ecfac6daac81
 # ╠═30e0d12e-8d78-4848-be24-e37493cb166a
-# ╟─e6b05fd7-5199-4c8e-8236-20a7fe92b211
+# ╠═7981a920-6766-4f73-a58c-bd3631ac16b1
+# ╠═e6b05fd7-5199-4c8e-8236-20a7fe92b211
 # ╟─70e91e1b-c9be-428c-b544-cc0584360624
 # ╠═accc0563-76bb-4d9b-81b5-c1091367dc9e
 # ╠═815a899e-0818-41d8-a676-413d6cb5f0c0
 # ╠═7733fa0b-dc5b-4b85-a281-dfc7d363c718
-# ╟─b8ecb346-2237-439c-a6a0-843edb786f54
-# ╟─c444c1c4-8379-4fea-9b50-696eede95309
 # ╠═f53f239e-5d66-43d5-9d56-8a7dd270e6d7
 # ╟─20283649-51eb-40b7-9880-800142f9bdf3
-# ╟─a8d92931-fe8e-407b-af3a-86a02261f465
+# ╠═a8d92931-fe8e-407b-af3a-86a02261f465
 # ╠═591adfd2-1071-4f1d-8a49-b250d97e153f
 # ╟─68867d4d-caee-4a9a-9db3-cfc6a112efbe
 # ╠═284e14fd-b358-450d-acc1-baa03c4f468b
 # ╟─70f4ed11-853a-46de-ad26-2b8165f1111b
 # ╟─928bb87d-d9f4-49da-b3c3-f674ca1c6d26
 # ╟─8f3785f6-263c-4c3b-b81c-4c41493f3197
+# ╠═fe881b04-e7cb-456c-b0fd-5554c1ef76e4
+# ╠═03db73b9-d321-4126-8b78-9c82153f3983
+# ╠═59d2e023-6194-4179-a77d-2b107a613bf5
+# ╠═61016659-b296-4027-b89f-32d7373136dc
+# ╠═8d3cc058-5766-4be5-9be7-30cc131dfa96
+# ╠═6df2ca41-cc69-438a-8603-3ab758a4c174
+# ╠═f7075b5f-1ad7-460c-a47c-a9f6b7092259
+# ╠═940e9684-2c19-4b46-a695-8be9afe420a7

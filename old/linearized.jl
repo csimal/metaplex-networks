@@ -31,3 +31,17 @@ function bamboozle(mp::HeterogeneousMetapopulation{SIS}, i)
     end
     return f!, (βs, γ)
 end
+
+function densify(mp::HeterogeneousMetapopulation{SIS}, nodes, scale)
+    β = mp.dynamics.β
+    γ = mp.dynamics.γ
+    D = mp.D
+    L = laplacian_matrix(mp.h)
+    βs = fill(β, nv(mp.h))
+    βs[nodes] .= -γ + scale
+    f! = function(du, u, p, t)
+        mul!(du, L, u, -p[3], 0.0)
+        @. du += p[1] * u * (1 - u) - (p[2]*u)
+    end
+    return f!, (βs, γ, D[2])   
+end
