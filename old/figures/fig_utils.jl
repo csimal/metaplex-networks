@@ -4,6 +4,7 @@ using Graphs
 using MATLAB
 using NetworkEpidemics
 using Parameters: @with_kw
+using Statistics
 
 
 CorrectedMetapopulation(χ::Real, mp::Metapopulation{SI}) = Metapopulation(mp.h, mp.D, SI(χ*mp.dynamics.β))
@@ -42,8 +43,12 @@ CorrectedMetapopulation(χ::Real, mp::Metapopulation{SIR}) = Metapopulation(mp.h
     colors = ColorSchemes.tab10
 end
 
-function CorrectedMetapopulationFigure(g, h, dyn, D, x0_i, x0_μ, x0_mp, kws...)
-
+function CorrectedMetapopulationFigure(g::SimpleGraph, h, dyn, D, x0_i, x0_μ, x0_mp, kws...)
+    k = degree(g)
+    χ₁ = mean(closeness_centrality(g))
+    χ₂ = mean(k.^2)/(mean(k)*N)
+    χ₃ = mean(k)/N #ne(g)/(n*(n-1)/2)
+    χ₄ = global_clustering_coefficient(g)
     mp = Metapopulation(h, D, dyn)
     mp_1 = CorrectedMetapopulation(χ₁, mp)
     mp_2 = CorrectedMetapopulation(χ₂, mp)
